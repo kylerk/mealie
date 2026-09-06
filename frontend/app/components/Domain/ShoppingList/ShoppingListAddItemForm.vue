@@ -17,6 +17,7 @@
             ref="foodInputRef"
             v-model="listItem.food"
             v-model:item-id="listItem.foodId!"
+            v-model:search-text="foodSearch"
             :items="foods"
             :label="rail ? $t('shopping-list.add-item') : $t('shopping-list.food')"
             :icon="$globals.icons.foods"
@@ -24,15 +25,9 @@
             :search="rail"
             :menu-props="{ location: menuDirection }"
             create
+            hide-create-actions
             @create="createAndAdd"
-          >
-            <template #create-actions="{ search, create, blur }">
-              <ShoppingListCreateItemActions
-                @create="create()"
-                @note="addAsNote(search); blur()"
-              />
-            </template>
-          </InputLabelType>
+          />
           <!-- Intercept clicks when collapsed so the drawer expands before the autocomplete opens -->
           <div
             v-if="rail"
@@ -60,6 +55,15 @@
         />
       </v-card-actions>
 
+      <!-- Rendered here rather than inside the dropdown: on a phone the on-screen keyboard
+           and a long list of matches can push a dropdown's tail out of reach -->
+      <ShoppingListCreateItemActions
+        v-if="!rail && canCreateFood"
+        row
+        @create="confirmPendingFood(createAndAdd)"
+        @note="confirmPendingFood(addAsNote)"
+      />
+
       <ShoppingListItemDetails
         v-if="!rail"
         v-model="listItem"
@@ -83,7 +87,7 @@ import { onClickOutside } from "@vueuse/core";
 // modelValue as reactive v-model
 const listItem = defineModel<ShoppingListItemCreate | ShoppingListItemOut>({ required: true });
 
-defineProps({
+const props = defineProps({
   labels: {
     type: Array as () => MultiPurposeLabelOut[],
     required: true,
@@ -113,17 +117,32 @@ async function createAndAdd(val: string) {
     assignNote(val);
   }
   emit("save");
+  foodSearch.value = "";
 }
 
 function addAsNote(val: string) {
   assignNote(val);
   emit("save");
+  foodSearch.value = "";
+}
+
+// text in the food field that names no existing food
+const foodSearch = ref("");
+const canCreateFood = computed(() => {
+  const search = foodSearch.value.trim().toLowerCase();
+  return !!search && !props.foods.some(food => food.name.toLowerCase() === search);
+});
+
+function confirmPendingFood(action: (val: string) => void) {
+  const val = foodSearch.value.trim();
+  foodInputRef.value?.blur();
+  action(val);
 }
 
 const { smAndDown } = useDisplay();
 const menuDirection = computed(() => smAndDown.value ? "top" : "bottom");
 
-const foodInputRef = ref<{ focus: () => void } | null>(null);
+const foodInputRef = ref<{ focus: () => void; blur: () => void } | null>(null);
 const rail = ref(true);
 
 async function expandAndFocus() {

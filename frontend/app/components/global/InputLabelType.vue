@@ -12,6 +12,7 @@
     :rounded="search ? true : '4px'"
     :custom-filter="() => true"
     :variant="search ? 'solo-filled' : undefined"
+    :hide-no-data="hideCreateActions"
     color="primary"
     auto-select-first
     clearable
@@ -22,7 +23,7 @@
       v-if="create"
       #append-item
     >
-      <div v-if="showCreate" class="px-2">
+      <div v-if="showCreate && !hideCreateActions" class="px-2">
         <!-- callers can offer more than one action for the typed text (e.g. create vs. add as a note) -->
         <slot
           name="create-actions"
@@ -52,6 +53,10 @@ const modelValue = defineModel<MultiPurposeLabelSummary | IngredientFood | Ingre
 // support v-model:item-id binding
 const itemId = defineModel<string | null | undefined>("item-id", { default: undefined });
 
+// support v-model:search-text, so a parent can act on text that matches no item
+// (e.g. render its own create buttons outside the dropdown)
+const searchText = defineModel<string>("search-text", { default: "" });
+
 const props = defineProps({
   items: {
     type: Array as () => Array<MultiPurposeLabelSummary | IngredientFood | IngredientUnit>,
@@ -70,6 +75,11 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // keep Enter-to-create but leave the dropdown free of buttons; the parent renders them
+  hideCreateActions: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits<{
@@ -80,6 +90,13 @@ const autocompleteRef = ref<HTMLInputElement>();
 
 // Use the search composable
 const { search: searchInput, filtered: filteredItems } = useSearch(computed(() => props.items));
+
+watch(searchInput, val => searchText.value = val ?? "");
+watch(searchText, (val) => {
+  if (val !== searchInput.value) {
+    searchInput.value = val;
+  }
+});
 
 const itemVal = computed({
   get: () => {
