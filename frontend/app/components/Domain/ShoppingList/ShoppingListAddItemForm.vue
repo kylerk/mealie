@@ -36,21 +36,13 @@
             @click="expandAndFocus"
           />
         </div>
+        <!-- This row is the one spot that is visible whenever the field is, wherever the
+             dropdown or the on-screen keyboard end up, so unmatched text can be confirmed here too -->
         <BaseButtonGroup
           v-if="!rail"
-          :buttons="[
-            {
-              icon: $globals.icons.close,
-              text: $t('general.cancel'),
-              event: 'cancel',
-            },
-            {
-              icon: $globals.icons.save,
-              text: $t('general.save'),
-              event: 'save',
-            },
-          ]"
-          @save="$emit('save')"
+          :buttons="rowButtons"
+          @save="canCreateFood ? confirmPendingFood(createAndAdd) : $emit('save')"
+          @note="confirmPendingFood(addAsNote)"
           @cancel="rail = true; $emit('cancel')"
         />
       </v-card-actions>
@@ -138,6 +130,28 @@ function confirmPendingFood(action: (val: string) => void) {
   foodInputRef.value?.blur();
   action(val);
 }
+
+const i18n = useI18n();
+const { $globals } = useNuxtApp();
+const rowButtons = computed(() => [
+  {
+    icon: $globals.icons.close,
+    text: i18n.t("general.cancel"),
+    event: "cancel",
+  },
+  ...(canCreateFood.value
+    ? [{
+        icon: $globals.icons.textBox,
+        text: i18n.t("shopping-list.add-as-note"),
+        event: "note",
+      }]
+    : []),
+  {
+    icon: $globals.icons.save,
+    text: canCreateFood.value ? i18n.t("shopping-list.create-and-add-to-list") : i18n.t("general.save"),
+    event: "save",
+  },
+]);
 
 const { smAndDown } = useDisplay();
 const menuDirection = computed(() => smAndDown.value ? "top" : "bottom");
