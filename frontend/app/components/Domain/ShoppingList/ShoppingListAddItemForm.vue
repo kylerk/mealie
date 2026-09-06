@@ -12,7 +12,7 @@
   >
     <div class="d-flex flex-column ga-3">
       <v-card-actions class="pa-0">
-        <div class="position-relative" style="flex: 1;">
+        <div ref="fieldWrapper" class="position-relative" style="flex: 1;">
           <InputLabelType
             ref="foodInputRef"
             v-model="listItem.food"
@@ -23,7 +23,7 @@
             :icon="$globals.icons.foods"
             :style="rail ? 'margin-inline: 3px;' : undefined"
             :search="rail"
-            :menu-props="{ location: menuDirection }"
+            :menu-props="menuProps"
             create
             hide-create-actions
             @create="createAndAdd"
@@ -156,8 +156,60 @@ const rowButtons = computed(() => [
 const { smAndDown } = useDisplay();
 const menuDirection = computed(() => smAndDown.value ? "top" : "bottom");
 
+// On phones the dropdown must fit in the space that is actually visible above the field.
+// iOS in particular keeps the page layout full-height when the keyboard is up, so Vuetify
+// would otherwise see "room" below the field, flip the dropdown downward, and put it under
+// the keyboard. Measuring against the visual viewport keeps it above the field and on screen.
+const fieldWrapper = ref<HTMLElement | null>(null);
+const menuMaxHeight = ref<number | undefined>(undefined);
+const menuLocation = ref<"top" | "bottom">("top");
+const MENU_MIN_HEIGHT = 120;
+const MENU_MARGIN = 12;
+
+function updateMenuMaxHeight() {
+  if (!smAndDown.value || !fieldWrapper.value) {
+    menuMaxHeight.value = undefined;
+    menuLocation.value = "top";
+    return;
+  }
+  const viewport = window.visualViewport;
+  const visibleTop = viewport?.offsetTop ?? 0;
+  const visibleBottom = visibleTop + (viewport?.height ?? window.innerHeight);
+  const rect = fieldWrapper.value.getBoundingClientRect();
+  const spaceAbove = Math.floor(rect.top - visibleTop - MENU_MARGIN);
+  const spaceBelow = Math.floor(visibleBottom - rect.bottom - MENU_MARGIN);
+
+  // prefer above (it leaves the rest of the form uncovered); only go below when
+  // above is too cramped to be usable and below is genuinely roomier
+  if (spaceAbove >= MENU_MIN_HEIGHT || spaceAbove >= spaceBelow) {
+    menuLocation.value = "top";
+    menuMaxHeight.value = Math.max(MENU_MIN_HEIGHT, spaceAbove);
+  }
+  else {
+    menuLocation.value = "bottom";
+    menuMaxHeight.value = Math.max(MENU_MIN_HEIGHT, spaceBelow);
+  }
+}
+
+const menuProps = computed(() => ({
+  location: smAndDown.value ? menuLocation.value : menuDirection.value,
+  maxHeight: menuMaxHeight.value,
+}));
+
+onMounted(() => {
+  const viewport = window.visualViewport ?? window;
+  viewport.addEventListener("resize", updateMenuMaxHeight, { passive: true });
+  viewport.addEventListener("scroll", updateMenuMaxHeight, { passive: true });
+  onBeforeUnmount(() => {
+    viewport.removeEventListener("resize", updateMenuMaxHeight);
+    viewport.removeEventListener("scroll", updateMenuMaxHeight);
+  });
+});
+
 const foodInputRef = ref<{ focus: () => void; blur: () => void } | null>(null);
 const rail = ref(true);
+// the field moves when the drawer expands, so re-measure the dropdown space then as well
+watch(rail, () => nextTick(updateMenuMaxHeight));
 
 async function expandAndFocus() {
   rail.value = false;
