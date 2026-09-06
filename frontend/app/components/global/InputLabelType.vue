@@ -22,12 +22,20 @@
       v-if="create"
       #append-item
     >
-      <div class="px-2">
-        <BaseButton
-          block
-          size="small"
-          @click="emitCreate"
-        />
+      <div v-if="showCreate" class="px-2">
+        <!-- callers can offer more than one action for the typed text (e.g. create vs. add as a note) -->
+        <slot
+          name="create-actions"
+          :search="searchInput"
+          :create="emitCreate"
+          :blur="blur"
+        >
+          <BaseButton
+            block
+            size="small"
+            @click="emitCreate"
+          />
+        </slot>
       </div>
     </template>
   </v-autocomplete>
@@ -86,15 +94,33 @@ const itemVal = computed({
   },
 });
 
+// when the selection is cleared from outside (e.g. the form resets after saving), drop the typed text too
+watch(modelValue, (val) => {
+  if (!val) {
+    searchInput.value = "";
+  }
+});
+
+// nothing to create when the field is empty or the text already names an existing item
+const showCreate = computed(() => {
+  const search = searchInput.value?.trim().toLowerCase();
+  return !!search && !props.items.some(item => item.name.toLowerCase() === search);
+});
+
+function blur() {
+  autocompleteRef.value?.blur();
+}
+
 function emitCreate() {
-  if (props.items.some(item => item.name === searchInput.value)) {
+  if (!showCreate.value) {
     return;
   }
-  emit("create", searchInput.value);
-  autocompleteRef.value?.blur();
+  emit("create", searchInput.value.trim());
+  blur();
 }
 
 defineExpose({
   focus: () => autocompleteRef.value?.focus(),
+  blur,
 });
 </script>

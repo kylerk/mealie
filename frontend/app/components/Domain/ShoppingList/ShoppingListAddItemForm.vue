@@ -24,8 +24,15 @@
             :search="rail"
             :menu-props="{ location: menuDirection }"
             create
-            @create="createAssignFood"
-          />
+            @create="createAndAdd"
+          >
+            <template #create-actions="{ search, create, blur }">
+              <ShoppingListCreateItemActions
+                @create="create()"
+                @note="addAsNote(search); blur()"
+              />
+            </template>
+          </InputLabelType>
           <!-- Intercept clicks when collapsed so the drawer expands before the autocomplete opens -->
           <div
             v-if="rail"
@@ -70,6 +77,7 @@ import type { ShoppingListItemCreate, ShoppingListItemOut } from "~/lib/api/type
 import type { MultiPurposeLabelOut } from "~/lib/api/types/labels";
 import type { IngredientFood, IngredientUnit } from "~/lib/api/types/recipe";
 import ShoppingListItemDetails from "./ShoppingListItemDetails.vue";
+import ShoppingListCreateItemActions from "./ShoppingListCreateItemActions.vue";
 import { onClickOutside } from "@vueuse/core";
 
 // modelValue as reactive v-model
@@ -90,11 +98,27 @@ defineProps({
   },
 });
 
-defineEmits<{
+const emit = defineEmits<{
   (e: "save" | "cancel" | "delete"): void;
 }>();
 
-const { createAssignFood } = useShoppingListItemEditor(listItem);
+const { createAssignFood, assignNote } = useShoppingListItemEditor(listItem);
+
+// Typing a new food and confirming it should put it on the list in one step, rather than
+// leaving the user to re-select the freshly created food and press save afterwards.
+async function createAndAdd(val: string) {
+  await createAssignFood(val);
+  if (!listItem.value.foodId) {
+    // creating the food failed (e.g. offline); still get the text onto the list
+    assignNote(val);
+  }
+  emit("save");
+}
+
+function addAsNote(val: string) {
+  assignNote(val);
+  emit("save");
+}
 
 const { smAndDown } = useDisplay();
 const menuDirection = computed(() => smAndDown.value ? "top" : "bottom");

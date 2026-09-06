@@ -30,6 +30,7 @@ describe("useShoppingListItemEditor", () => {
   const item = ref(MOCK_ITEM) as ModelRef<ShoppingListItemOut>;
   const {
     assignLabelToFood,
+    assignNote,
     createAssignFood,
     createAssignUnit,
   } = useShoppingListItemEditor(item);
@@ -70,6 +71,23 @@ describe("useShoppingListItemEditor", () => {
       unitStore.actions.createOne.mockReturnValueOnce(undefined);
       createAssignUnit("Wafer");
       expect(item.value.unitId).toBe("unit_id");
+    });
+  });
+  describe("assignNote", () => {
+    test("puts the text on the note and drops the food", () => {
+      item.value.food = { id: "food_id", name: "Soylent Green" };
+      item.value.foodId = "food_id";
+      item.value.note = "";
+      assignNote("Paper towels");
+      expect(item.value.note).toBe("Paper towels");
+      expect(item.value.food).toBeNull();
+      expect(item.value.foodId).toBeNull();
+      expect(foodStore.actions.createOne).not.toHaveBeenCalled();
+    });
+    test("keeps an existing note", () => {
+      item.value.note = "the big pack";
+      assignNote("Paper towels");
+      expect(item.value.note).toBe("Paper towels the big pack");
     });
   });
   describe("assignLabelToFood", () => {

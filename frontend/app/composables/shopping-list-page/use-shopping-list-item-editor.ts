@@ -37,6 +37,16 @@ export function useShoppingListItemEditor(listItem: ModelRef<ShoppingListItemOut
     unitData.reset();
   }
 
+  /**
+   * Put free text on the item as a note instead of a food, so it can go on the
+   * list without touching the food database.
+   */
+  function assignNote(val: string) {
+    listItem.value.food = null;
+    listItem.value.foodId = null;
+    listItem.value.note = listItem.value.note ? `${val} ${listItem.value.note}` : val;
+  }
+
   async function assignLabelToFood() {
     if (!(listItem.value.food && listItem.value.foodId && listItem.value.labelId)) {
       return;
@@ -48,6 +58,7 @@ export function useShoppingListItemEditor(listItem: ModelRef<ShoppingListItemOut
 
   return {
     assignLabelToFood,
+    assignNote,
     createAssignFood,
     createAssignUnit,
   };

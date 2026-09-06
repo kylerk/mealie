@@ -9,8 +9,15 @@
         :icon="$globals.icons.foods"
         :autofocus="autoFocus === 'food'"
         create
-        @create="createAssignFood"
-      />
+        @create="isNew ? createAndAdd($event) : createAssignFood($event)"
+      >
+        <template v-if="isNew" #create-actions="{ search, create, blur }">
+          <ShoppingListCreateItemActions
+            @create="create()"
+            @note="addAsNote(search); blur()"
+          />
+        </template>
+      </InputLabelType>
       <ShoppingListItemDetails
         v-model="listItem"
         :labels="labels"
@@ -55,6 +62,7 @@ import type { ShoppingListItemCreate, ShoppingListItemOut } from "~/lib/api/type
 import type { MultiPurposeLabelOut } from "~/lib/api/types/labels";
 import type { IngredientFood, IngredientUnit } from "~/lib/api/types/recipe";
 import ShoppingListItemDetails from "./ShoppingListItemDetails.vue";
+import ShoppingListCreateItemActions from "./ShoppingListCreateItemActions.vue";
 
 // modelValue as reactive v-model
 const listItem = defineModel<ShoppingListItemCreate | ShoppingListItemOut>({ required: true });
@@ -77,14 +85,33 @@ defineProps({
     required: false,
     default: true,
   },
+  // when editing a brand-new item, confirming a new food saves the item in one step
+  isNew: {
+    type: Boolean,
+    required: false,
+    default: false,
+  },
 });
 
-// const emit = defineEmits<["save", "cancel", "delete"]>();
-defineEmits<{
+const emit = defineEmits<{
   (e: "save" | "cancel" | "delete"): void;
 }>();
 
-const { createAssignFood } = useShoppingListItemEditor(listItem);
+const { createAssignFood, assignNote } = useShoppingListItemEditor(listItem);
+
+async function createAndAdd(val: string) {
+  await createAssignFood(val);
+  if (!listItem.value.foodId) {
+    // creating the food failed (e.g. offline); still get the text onto the list
+    assignNote(val);
+  }
+  emit("save");
+}
+
+function addAsNote(val: string) {
+  assignNote(val);
+  emit("save");
+}
 
 watch(
   () => listItem.value.quantity,

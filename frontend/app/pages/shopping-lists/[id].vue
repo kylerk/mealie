@@ -171,6 +171,7 @@
           :units="allUnits || []"
           :foods="allFoods || []"
           :allow-delete="false"
+          is-new
           @delete="createEditorOpen = false"
           @cancel="createEditorOpen = false"
           @save="createListItem"
