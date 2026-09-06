@@ -13,8 +13,8 @@
       >
         <template v-if="isNew" #create-actions="{ search, create, blur }">
           <ShoppingListCreateItemActions
-            @create="create()"
-            @note="addAsNote(search); blur()"
+            @primary="create()"
+            @secondary="addAsNote(search); blur()"
           />
         </template>
       </InputLabelType>

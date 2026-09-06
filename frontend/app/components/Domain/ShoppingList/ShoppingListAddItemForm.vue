@@ -48,12 +48,18 @@
       </v-card-actions>
 
       <!-- Rendered here rather than inside the dropdown: on a phone the on-screen keyboard
-           and a long list of matches can push a dropdown's tail out of reach -->
+           and a long list of matches can push a dropdown's tail out of reach. The pair stays
+           put and is relabelled by state, so the two available actions are always in view. -->
       <ShoppingListCreateItemActions
-        v-if="!rail && canCreateFood"
+        v-if="!rail"
         row
-        @create="confirmPendingFood(createAndAdd)"
-        @note="confirmPendingFood(addAsNote)"
+        :primary-text="canCreateFood ? $t('shopping-list.create-and-add-to-list') : $t('shopping-list.add-to-list')"
+        :primary-icon="canCreateFood ? $globals.icons.createAlt : $globals.icons.cartCheck"
+        :secondary-text="canCreateFood ? $t('shopping-list.add-as-note') : $t('shopping-list.set-quantity-and-label')"
+        :secondary-icon="canCreateFood ? $globals.icons.textBox : $globals.icons.edit"
+        :disabled="!canCreateFood && !hasFood"
+        @primary="canCreateFood ? confirmPendingFood(createAndAdd) : addSelectedFood()"
+        @secondary="canCreateFood ? confirmPendingFood(addAsNote) : focusQuantity()"
       />
 
       <ShoppingListItemDetails
@@ -129,6 +135,40 @@ function confirmPendingFood(action: (val: string) => void) {
   const val = foodSearch.value.trim();
   foodInputRef.value?.blur();
   action(val);
+}
+
+// an existing food that the typed text names exactly, even if it was not picked from the list
+const matchingFood = computed(() => {
+  const search = foodSearch.value.trim().toLowerCase();
+  return search ? props.foods.find(food => food.name.toLowerCase() === search) : undefined;
+});
+const hasFood = computed(() => !!listItem.value.foodId || !!matchingFood.value);
+
+// "Add to list": put the selected (or exactly typed) food on the list as-is
+function addSelectedFood() {
+  if (!listItem.value.foodId && matchingFood.value) {
+    listItem.value.food = matchingFood.value;
+    listItem.value.foodId = matchingFood.value.id;
+  }
+  foodInputRef.value?.blur();
+  emit("save");
+  foodSearch.value = "";
+}
+
+// "Set quantity & label": move on to the details below before saving
+function focusQuantity() {
+  if (!listItem.value.foodId && matchingFood.value) {
+    listItem.value.food = matchingFood.value;
+    listItem.value.foodId = matchingFood.value.id;
+  }
+  foodInputRef.value?.blur();
+  nextTick(() => {
+    const quantityInput = fieldWrapper.value
+      ?.closest(".v-navigation-drawer")
+      ?.querySelector<HTMLInputElement>(".v-number-input input") ?? null;
+    quantityInput?.focus();
+    quantityInput?.select?.();
+  });
 }
 
 const i18n = useI18n();
