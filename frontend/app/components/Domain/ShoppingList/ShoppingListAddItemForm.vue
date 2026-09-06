@@ -4,7 +4,7 @@
     permanent
     rounded="t-xl"
     location="bottom"
-    class="pa-4 pt-2 mb-0"
+    class="pa-4 pt-2 mb-0 shopping-list-add-item-form"
     width="300"
     rail-width="85"
     :rail="rail"
@@ -160,41 +160,36 @@ const menuDirection = computed(() => smAndDown.value ? "top" : "bottom");
 // iOS in particular keeps the page layout full-height when the keyboard is up, so Vuetify
 // would otherwise see "room" below the field, flip the dropdown downward, and put it under
 // the keyboard. Measuring against the visual viewport keeps it above the field and on screen.
+//
+// Vuetify's own placement cannot be trusted here either: iOS reports viewport geometry
+// inconsistently while the keyboard is up, and the dropdown still ended up below the field.
+// So on phones the dropdown is attached inside the drawer and pinned above the field with
+// plain CSS (see the style block), and only its height is measured. Whatever the keyboard
+// does, content directly above a visible field is visible; at worst the top of a long list
+// is clipped and scrolls, while the matches nearest the field stay in reach.
 const fieldWrapper = ref<HTMLElement | null>(null);
 const menuMaxHeight = ref<number | undefined>(undefined);
-const menuLocation = ref<"top" | "bottom">("top");
 const MENU_MIN_HEIGHT = 120;
 const MENU_MARGIN = 12;
 
 function updateMenuMaxHeight() {
   if (!smAndDown.value || !fieldWrapper.value) {
     menuMaxHeight.value = undefined;
-    menuLocation.value = "top";
     return;
   }
-  const viewport = window.visualViewport;
-  const visibleTop = viewport?.offsetTop ?? 0;
-  const visibleBottom = visibleTop + (viewport?.height ?? window.innerHeight);
-  const rect = fieldWrapper.value.getBoundingClientRect();
-  const spaceAbove = Math.floor(rect.top - visibleTop - MENU_MARGIN);
-  const spaceBelow = Math.floor(visibleBottom - rect.bottom - MENU_MARGIN);
-
-  // prefer above (it leaves the rest of the form uncovered); only go below when
-  // above is too cramped to be usable and below is genuinely roomier
-  if (spaceAbove >= MENU_MIN_HEIGHT || spaceAbove >= spaceBelow) {
-    menuLocation.value = "top";
-    menuMaxHeight.value = Math.max(MENU_MIN_HEIGHT, spaceAbove);
-  }
-  else {
-    menuLocation.value = "bottom";
-    menuMaxHeight.value = Math.max(MENU_MIN_HEIGHT, spaceBelow);
-  }
+  const visibleTop = window.visualViewport?.offsetTop ?? 0;
+  const spaceAbove = Math.floor(fieldWrapper.value.getBoundingClientRect().top - visibleTop - MENU_MARGIN);
+  menuMaxHeight.value = Math.max(MENU_MIN_HEIGHT, spaceAbove);
 }
 
-const menuProps = computed(() => ({
-  location: smAndDown.value ? menuLocation.value : menuDirection.value,
-  maxHeight: menuMaxHeight.value,
-}));
+const menuProps = computed(() => smAndDown.value
+  ? {
+      attach: fieldWrapper.value ?? true,
+      locationStrategy: "static" as const,
+      maxHeight: menuMaxHeight.value,
+      contentClass: "shopping-list-add-item-form__menu",
+    }
+  : { location: menuDirection.value });
 
 onMounted(() => {
   const viewport = window.visualViewport ?? window;
@@ -241,3 +236,21 @@ watch(
   },
 );
 </script>
+
+<style scoped lang="scss">
+/* The phone dropdown is attached inside the drawer (see menuProps) and pinned above the
+   food field, so the drawer must let it overflow upward past its own edge. */
+.shopping-list-add-item-form :deep(.v-navigation-drawer__content) {
+  overflow: visible;
+}
+
+.shopping-list-add-item-form :deep(.shopping-list-add-item-form__menu) {
+  position: absolute;
+  top: auto !important;
+  bottom: 100%;
+  left: 0 !important;
+  right: 0;
+  width: 100%;
+  margin-bottom: 4px;
+}
+</style>
