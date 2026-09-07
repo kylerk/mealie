@@ -98,8 +98,11 @@ const { search: searchInput, filtered: filteredItems } = useSearch(computed(() =
 // text the caller is about to act on. So an empty value is only accepted when the user
 // produced it (typing, or the clear button); any other reset gets the typed text put back.
 let userCleared = false;
-function onUserEdit() {
-  userCleared = true;
+function onUserEdit(e?: Event) {
+  // iOS Safari fires an extra input event on blur (committing autocorrect), carrying the typed
+  // text; only an event that actually leaves the field empty counts as the user clearing it
+  const target = e?.target as HTMLInputElement | undefined;
+  userCleared = target ? !target.value : true;
 }
 
 watch(searchInput, (val) => {
