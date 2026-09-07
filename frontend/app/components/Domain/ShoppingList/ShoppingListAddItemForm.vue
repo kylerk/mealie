@@ -58,10 +58,8 @@
         :secondary-text="canCreateFood ? $t('shopping-list.add-as-note') : $t('shopping-list.set-quantity-and-label')"
         :secondary-icon="canCreateFood ? $globals.icons.textBox : $globals.icons.edit"
         :disabled="!canCreateFood && !hasFood"
-        @touchstart.passive="dbg('touchstart on actions')"
-        @pointerdown="dbg('pointerdown on actions')"
-        @primary="onPrimary()"
-        @secondary="onSecondary()"
+        @primary="canCreateFood ? confirmPendingFood(createAndAdd) : addSelectedFood()"
+        @secondary="canCreateFood ? confirmPendingFood(addAsNote) : focusQuantity()"
       />
 
       <ShoppingListItemDetails
@@ -72,14 +70,6 @@
         @save="$emit('save')"
       />
     </div>
-    <!-- Diagnostic panel, shown only with ?debug in the URL, pinned to the top so the keyboard can't hide it -->
-    <Teleport to="body">
-      <div
-        v-if="debugEnabled"
-        style="position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: rgba(0,0,0,.88); color: #7fff7f; font: 11px/1.35 monospace; padding: 4px 6px; white-space: pre-wrap; max-height: 40vh; overflow: auto; pointer-events: none;"
-        v-text="debugLog.join('\n') || 'debug: waiting for a tap'"
-      />
-    </Teleport>
   </v-navigation-drawer>
 </template>
 
@@ -117,54 +107,11 @@ const emit = defineEmits<{
 
 const { createAssignFood, assignNote } = useShoppingListItemEditor(listItem);
 
-// --- diagnostics (?debug in the URL) -------------------------------------------------
-const route = useRoute();
-const debugEnabled = computed(() => "debug" in route.query);
-const debugLog = ref<string[]>([]);
-function dbg(msg: string) {
-  if (!debugEnabled.value) {
-    return;
-  }
-  const stamp = new Date().toISOString().slice(11, 23);
-  debugLog.value = [...debugLog.value.slice(-14), `${stamp} ${msg}`];
-}
-onMounted(() => {
-  if (!debugEnabled.value) {
-    return;
-  }
-  dbg(`ready ua=${navigator.userAgent.slice(0, 60)}`);
-  window.addEventListener("error", e => dbg(`window error: ${e.message} @${e.filename?.split("/").pop()}:${e.lineno}`));
-  window.addEventListener("unhandledrejection", e => dbg(`unhandled rejection: ${(e.reason && (e.reason.message || e.reason)) ?? "?"}`));
-});
-
-function onPrimary() {
-  dbg(`primary tap: canCreate=${canCreateFood.value} hasFood=${hasFood.value} text="${foodSearch.value}" foodId=${listItem.value.foodId ?? "none"}`);
-  if (canCreateFood.value) {
-    confirmPendingFood(createAndAdd);
-  }
-  else {
-    addSelectedFood();
-  }
-}
-
-function onSecondary() {
-  dbg(`secondary tap: canCreate=${canCreateFood.value} hasFood=${hasFood.value} text="${foodSearch.value}"`);
-  if (canCreateFood.value) {
-    confirmPendingFood(addAsNote);
-  }
-  else {
-    focusQuantity();
-  }
-}
-// -------------------------------------------------------------------------------------
-
 // Saving happens in the parent; confirm here so the user sees that the tap did something,
 // which matters on a phone where the new item may be scrolled out of view.
 function saveAndConfirm(name: string) {
-  dbg(`emitting save: foodId=${listItem.value.foodId ?? "none"} note="${listItem.value.note}"`);
   emit("save");
   foodSearch.value = "";
-  dbg("save emitted, toast shown");
   alert.success(i18n.t("shopping-list.item-added-to-list", { item: name }));
 }
 
@@ -172,9 +119,7 @@ function saveAndConfirm(name: string) {
 // leaving the user to re-select the freshly created food and press save afterwards.
 async function createAndAdd(val: string) {
   try {
-    dbg(`createAndAdd("${val}") -> creating food`);
     await createAssignFood(val);
-    dbg(`food created: id=${listItem.value.foodId ?? "none"}`);
     if (!listItem.value.foodId) {
       // creating the food failed (e.g. offline); still get the text onto the list
       assignNote(val);
@@ -182,7 +127,6 @@ async function createAndAdd(val: string) {
     saveAndConfirm(val);
   }
   catch (error) {
-    dbg(`createAndAdd error: ${String(error)}`);
     alert.error(String(error));
   }
 }
@@ -206,7 +150,6 @@ const canCreateFood = computed(() => {
 
 function confirmPendingFood(action: (val: string) => void) {
   const val = foodSearch.value.trim();
-  dbg(`confirmPendingFood: val="${val}"`);
   foodInputRef.value?.blur();
   action(val);
 }
