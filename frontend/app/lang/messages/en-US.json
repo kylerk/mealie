@@ -758,6 +758,8 @@
     "add-to-list": "Add to list",
     "condensed-view": "Condensed view",
     "default-view": "Default view",
+    "hide-labels": "Hide labels",
+    "show-labels": "Show labels",
     "item-added-to-list": "{item} added to list",
     "create-and-add-to-list": "Create & add to list",
     "set-quantity-and-label": "Set quantity & label",
