@@ -756,6 +756,7 @@
     "add-item": "Add item",
     "add-as-note": "Add as note",
     "add-to-list": "Add to list",
+    "item-added-to-list": "{item} added to list",
     "create-and-add-to-list": "Create & add to list",
     "set-quantity-and-label": "Set quantity & label",
     "food": "Food",

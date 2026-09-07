@@ -80,6 +80,7 @@ import type { MultiPurposeLabelOut } from "~/lib/api/types/labels";
 import type { IngredientFood, IngredientUnit } from "~/lib/api/types/recipe";
 import ShoppingListItemDetails from "./ShoppingListItemDetails.vue";
 import ShoppingListCreateItemActions from "./ShoppingListCreateItemActions.vue";
+import { alert } from "~/composables/use-toast";
 import { onClickOutside } from "@vueuse/core";
 
 // modelValue as reactive v-model
@@ -106,22 +107,38 @@ const emit = defineEmits<{
 
 const { createAssignFood, assignNote } = useShoppingListItemEditor(listItem);
 
+// Saving happens in the parent; confirm here so the user sees that the tap did something,
+// which matters on a phone where the new item may be scrolled out of view.
+function saveAndConfirm(name: string) {
+  emit("save");
+  foodSearch.value = "";
+  alert.success(i18n.t("shopping-list.item-added-to-list", { item: name }));
+}
+
 // Typing a new food and confirming it should put it on the list in one step, rather than
 // leaving the user to re-select the freshly created food and press save afterwards.
 async function createAndAdd(val: string) {
-  await createAssignFood(val);
-  if (!listItem.value.foodId) {
-    // creating the food failed (e.g. offline); still get the text onto the list
-    assignNote(val);
+  try {
+    await createAssignFood(val);
+    if (!listItem.value.foodId) {
+      // creating the food failed (e.g. offline); still get the text onto the list
+      assignNote(val);
+    }
+    saveAndConfirm(val);
   }
-  emit("save");
-  foodSearch.value = "";
+  catch (error) {
+    alert.error(String(error));
+  }
 }
 
 function addAsNote(val: string) {
-  assignNote(val);
-  emit("save");
-  foodSearch.value = "";
+  try {
+    assignNote(val);
+    saveAndConfirm(val);
+  }
+  catch (error) {
+    alert.error(String(error));
+  }
 }
 
 // text in the food field that names no existing food
@@ -146,13 +163,18 @@ const hasFood = computed(() => !!listItem.value.foodId || !!matchingFood.value);
 
 // "Add to list": put the selected (or exactly typed) food on the list as-is
 function addSelectedFood() {
-  if (!listItem.value.foodId && matchingFood.value) {
-    listItem.value.food = matchingFood.value;
-    listItem.value.foodId = matchingFood.value.id;
+  try {
+    if (!listItem.value.foodId && matchingFood.value) {
+      listItem.value.food = matchingFood.value;
+      listItem.value.foodId = matchingFood.value.id;
+    }
+    const name = listItem.value.food?.name || foodSearch.value.trim();
+    foodInputRef.value?.blur();
+    saveAndConfirm(name);
   }
-  foodInputRef.value?.blur();
-  emit("save");
-  foodSearch.value = "";
+  catch (error) {
+    alert.error(String(error));
+  }
 }
 
 // "Set quantity & label": move on to the details below before saving
