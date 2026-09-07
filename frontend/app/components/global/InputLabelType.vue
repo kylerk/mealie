@@ -18,6 +18,8 @@
     clearable
     hide-details
     @keyup.enter="emitCreate"
+    @input="onUserEdit"
+    @click:clear="onUserEdit"
   >
     <template
       v-if="create"
@@ -91,7 +93,24 @@ const autocompleteRef = ref<HTMLInputElement>();
 // Use the search composable
 const { search: searchInput, filtered: filteredItems } = useSearch(computed(() => props.items));
 
-watch(searchInput, val => searchText.value = val ?? "");
+// Vuetify resets its search text whenever the field gains or loses focus. On a phone that
+// happens the moment a button is tapped or the keyboard is dismissed, which would wipe the
+// text the caller is about to act on. So an empty value is only accepted when the user
+// produced it (typing, or the clear button); any other reset gets the typed text put back.
+let userCleared = false;
+function onUserEdit() {
+  userCleared = true;
+}
+
+watch(searchInput, (val) => {
+  const byUser = userCleared;
+  userCleared = false;
+  if (!val && !byUser && searchText.value && !itemVal.value) {
+    searchInput.value = searchText.value;
+    return;
+  }
+  searchText.value = val ?? "";
+});
 watch(searchText, (val) => {
   if (val !== searchInput.value) {
     searchInput.value = val;
