@@ -23,6 +23,7 @@ from mealie.schema.response.pagination import PaginationBase
 from ...db.models.recipe import (
     IngredientFoodModel,
     IngredientFoodSubstitutionModel,
+    IngredientUnitModel,
     RecipeComment,
     RecipeIngredientModel,
     RecipeIngredientSubstitutionModel,
@@ -171,9 +172,11 @@ class RecipeSummary(MealieModel):
     @classmethod
     def loader_options(cls) -> list[LoaderOption]:
         return [
-            joinedload(RecipeModel.recipe_category),
-            joinedload(RecipeModel.tags),
-            joinedload(RecipeModel.tools),
+            # selectinload keeps the recipe query to one row per recipe; joining three independent
+            # collections would multiply rows (categories x tags x tools) for every recipe on the page
+            selectinload(RecipeModel.recipe_category),
+            selectinload(RecipeModel.tags),
+            selectinload(RecipeModel.tools),
             joinedload(RecipeModel.user).load_only(User.household_id),
         ]
 
@@ -313,13 +316,23 @@ class Recipe(RecipeSummary):
             joinedload(RecipeModel.recipe_category),
             selectinload(RecipeModel.tags),
             selectinload(RecipeModel.tools),
-            selectinload(RecipeModel.recipe_ingredient).joinedload(RecipeIngredientModel.unit),
+            selectinload(RecipeModel.recipe_ingredient)
+            .joinedload(RecipeIngredientModel.unit)
+            .selectinload(IngredientUnitModel.aliases),
             selectinload(RecipeModel.recipe_ingredient)
             .joinedload(RecipeIngredientModel.food)
             .joinedload(IngredientFoodModel.extras),
             selectinload(RecipeModel.recipe_ingredient)
             .joinedload(RecipeIngredientModel.food)
             .joinedload(IngredientFoodModel.label),
+            # the ingredient food/unit schemas include aliases and households; without these the ORM
+            # lazy-loads them one query per ingredient when the recipe is serialised
+            selectinload(RecipeModel.recipe_ingredient)
+            .joinedload(RecipeIngredientModel.food)
+            .selectinload(IngredientFoodModel.aliases),
+            selectinload(RecipeModel.recipe_ingredient)
+            .joinedload(RecipeIngredientModel.food)
+            .selectinload(IngredientFoodModel.households_with_ingredient_food),
             selectinload(RecipeModel.recipe_ingredient)
             .joinedload(RecipeIngredientModel.food)
             .selectinload(IngredientFoodModel.substitutions)

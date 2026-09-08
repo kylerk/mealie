@@ -205,9 +205,9 @@ class ShoppingListRecipeRefOut(MealieModel):
     @classmethod
     def loader_options(cls) -> list[LoaderOption]:
         return [
-            selectinload(ShoppingListRecipeReference.recipe).joinedload(RecipeModel.recipe_category),
-            selectinload(ShoppingListRecipeReference.recipe).joinedload(RecipeModel.tags),
-            selectinload(ShoppingListRecipeReference.recipe).joinedload(RecipeModel.tools),
+            selectinload(ShoppingListRecipeReference.recipe).selectinload(RecipeModel.recipe_category),
+            selectinload(ShoppingListRecipeReference.recipe).selectinload(RecipeModel.tags),
+            selectinload(ShoppingListRecipeReference.recipe).selectinload(RecipeModel.tools),
         ]
 
 
@@ -229,13 +229,13 @@ class ShoppingListSummary(ShoppingListSave):
             selectinload(ShoppingList.extras),
             selectinload(ShoppingList.recipe_references)
             .joinedload(ShoppingListRecipeReference.recipe)
-            .joinedload(RecipeModel.recipe_category),
+            .selectinload(RecipeModel.recipe_category),
             selectinload(ShoppingList.recipe_references)
             .joinedload(ShoppingListRecipeReference.recipe)
-            .joinedload(RecipeModel.tags),
+            .selectinload(RecipeModel.tags),
             selectinload(ShoppingList.recipe_references)
             .joinedload(ShoppingListRecipeReference.recipe)
-            .joinedload(RecipeModel.tools),
+            .selectinload(RecipeModel.tools),
             selectinload(ShoppingList.label_settings).joinedload(ShoppingListMultiPurposeLabel.label),
             joinedload(ShoppingList.user).load_only(User.household_id, User.group_id),
         ]
@@ -280,13 +280,13 @@ class ShoppingListOut(ShoppingListUpdate):
             selectinload(ShoppingList.list_items).joinedload(ShoppingListItem.recipe_references),
             selectinload(ShoppingList.recipe_references)
             .joinedload(ShoppingListRecipeReference.recipe)
-            .joinedload(RecipeModel.recipe_category),
+            .selectinload(RecipeModel.recipe_category),
             selectinload(ShoppingList.recipe_references)
             .joinedload(ShoppingListRecipeReference.recipe)
-            .joinedload(RecipeModel.tags),
+            .selectinload(RecipeModel.tags),
             selectinload(ShoppingList.recipe_references)
             .joinedload(ShoppingListRecipeReference.recipe)
-            .joinedload(RecipeModel.tools),
+            .selectinload(RecipeModel.tools),
             selectinload(ShoppingList.label_settings).joinedload(ShoppingListMultiPurposeLabel.label),
             joinedload(ShoppingList.user).load_only(User.household_id, User.group_id),
         ]
