@@ -388,6 +388,7 @@ import ShoppingListItemEditor from "~/components/Domain/ShoppingList/ShoppingLis
 import ShoppingListOfflineBanner from "~/components/Domain/ShoppingList/ShoppingListOfflineBanner.vue";
 import ShoppingListOfflineDebug from "~/components/Domain/ShoppingList/ShoppingListOfflineDebug.vue";
 import { offlineDebugLog, useOfflineDebug } from "~/composables/use-offline-debug";
+import { LAST_SHOPPING_LIST_KEY, writeOfflineCache } from "~/composables/use-offline-cache";
 import { useShoppingListPage } from "~/composables/shopping-list-page/use-shopping-list-page";
 import { useLabelStore, useUnitStore, useFoodStore } from "~/composables/store";
 import { useShoppingListPreferences } from "~/composables/use-users/preferences";
@@ -402,6 +403,9 @@ useSeoMeta({
 
 const route = useRoute();
 const id = route.params.id as string;
+
+// remembered so a fresh open without a connection can land directly on this list
+writeOfflineCache(LAST_SHOPPING_LIST_KEY, id);
 
 // Offline diagnostics panel: open the list with ?debug=offline to turn it on; "Hide" turns it off.
 const offlineDebug = useOfflineDebug();

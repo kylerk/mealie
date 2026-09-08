@@ -11,6 +11,26 @@
 
 const PREFIX = "mealie-offline:";
 
+/** Offline-cache key holding the id of the shopping list that was opened most recently. */
+export const LAST_SHOPPING_LIST_KEY = "last-shopping-list";
+
+/**
+ * True when the app had to start from cached data because the server could not be reached
+ * (the session or app-info request failed). The landing page uses it to go straight to the
+ * shopping list, the one part of the app that is useful in that state.
+ */
+export const bootedOffline = ref(false);
+
+export function markBootedOffline(): void {
+  bootedOffline.value = true;
+}
+
+/** Where to send the user when the server can't be reached: the last opened list, or the list index. */
+export function offlineLandingRoute(): string {
+  const lastList = readOfflineCache<string>(LAST_SHOPPING_LIST_KEY)?.value;
+  return lastList ? `/shopping-lists/${lastList}` : "/shopping-lists";
+}
+
 export interface OfflineCacheEntry<T> {
   savedAt: number;
   value: T;

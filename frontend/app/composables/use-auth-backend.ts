@@ -2,7 +2,13 @@ import { ref, computed, watch } from "vue";
 import type { UserOut } from "~/lib/api/types/user";
 import { clearAllStores } from "~/composables/store";
 import { clearComposableCaches } from "~/composables/use-clear-composable-caches";
-import { clearOfflineCaches, isNetworkError, readOfflineCache, writeOfflineCache } from "~/composables/use-offline-cache";
+import {
+  clearOfflineCaches,
+  isNetworkError,
+  markBootedOffline,
+  readOfflineCache,
+  writeOfflineCache,
+} from "~/composables/use-offline-cache";
 import { offlineDebugLog } from "~/composables/use-offline-debug";
 import { getTokenCookieOptions, getTokenExpiry, nextRefreshDelay, readTokenCookie } from "~/composables/use-token-cookie";
 
@@ -144,6 +150,7 @@ export const useAuthBackend = function (): AuthState {
       const cachedSession = isNetworkError(error) ? readOfflineCache<UserOut>(CACHED_SESSION_KEY) : null;
       if (cachedSession) {
         console.warn("Server unreachable; continuing with the last known session");
+        markBootedOffline();
         offlineDebugLog(`session: server unreachable (${error?.message ?? error}); using cached user`);
         authUser.value = cachedSession.value;
         authStatus.value = "authenticated";

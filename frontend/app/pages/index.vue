@@ -6,6 +6,8 @@
 import useDefaultActivity from "~/composables/use-default-activity";
 import { useUserActivityPreferences } from "~/composables/use-users/preferences";
 import { useAsyncKey } from "~/composables/use-utils";
+import { bootedOffline, offlineLandingRoute } from "~/composables/use-offline-cache";
+import { offlineDebugLog } from "~/composables/use-offline-debug";
 import type { AppInfo, AppStartupInfo } from "~/lib/api/types/admin";
 
 definePageMeta({
@@ -29,9 +31,29 @@ async function redirectPublicUserToDefaultGroup() {
   }
 }
 
+// With no connection the shopping list is the one page that works (it keeps a copy on the device),
+// so a fresh open goes straight there instead of to a recipe page that can't load.
+function redirectOffline(reason: string) {
+  const target = offlineLandingRoute();
+  offlineDebugLog(`landing: ${reason}; going to ${target}`);
+  router.replace(target);
+}
+
 useAsyncData(useAsyncKey(), async () => {
   if (groupSlug.value) {
-    const data = await $axios.get<AppStartupInfo>("/api/app/about/startup-info");
+    if (bootedOffline.value || !navigator.onLine) {
+      redirectOffline(bootedOffline.value ? "app started from cached data" : "browser is offline");
+      return;
+    }
+
+    let data;
+    try {
+      data = await $axios.get<AppStartupInfo>("/api/app/about/startup-info", { timeout: 5000 });
+    }
+    catch (error: any) {
+      redirectOffline(`startup info failed (${error?.message ?? error})`);
+      return;
+    }
     const isDemo = data.data.isDemo;
     const isFirstLogin = data.data.isFirstLogin;
     const defaultActivityRoute = getDefaultActivityRoute(
