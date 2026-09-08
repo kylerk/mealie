@@ -208,15 +208,12 @@ function initDropdowns() {
     state.dropDowns[link.title] = link.childrenStartExpanded || false;
   });
 }
-watch(
-  () => allLinks,
-  () => {
-    initDropdowns();
-  },
-  {
-    deep: true,
-  },
-);
+// allLinks is a computed that yields a new array whenever its inputs change, so watching it
+// directly is enough; the previous getter returned the ref itself with deep: true, which made Vue
+// traverse the entire (nested) link tree on every change
+watch(allLinks, () => {
+  initDropdowns();
+});
 </script>
 
 <style scoped>

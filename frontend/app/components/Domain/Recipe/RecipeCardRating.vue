@@ -43,10 +43,10 @@ const props = defineProps({
   },
 });
 
-const { userRatings } = useUserSelfRatings();
+const { userRatingsByRecipeId } = useUserSelfRatings();
 
 const userRating = computed(() => {
-  return userRatings.value.find(r => r.recipeId === props.recipeId)?.rating ?? null;
+  return userRatingsByRecipeId.value.get(props.recipeId)?.rating ?? null;
 });
 
 // this display is always readonly, so we show the user's own rating if they have one,

@@ -60,12 +60,18 @@ function isAllowedIframeSrc(src: string, allowedHosts: string[]): boolean {
  * `allowedIframeHosts` is non-empty, and even then any iframe whose `src` is not an https URL on
  * the host allowlist is removed.
  */
-export function sanitizeMarkdownHtml(rawHtml: string | null | undefined, allowedIframeHosts: string[] = []): string {
-  if (!rawHtml) {
-    return "";
-  }
+// The hooks read the allowed iframe hosts for the sanitize call currently in progress. They are
+// registered once on the (global) DOMPurify instance instead of being added and removed on every
+// call: SafeMarkdown renders every description, ingredient and instruction through this function,
+// so the per-call registration churn added up, and removing hooks per call was not re-entrant.
+let currentAllowedIframeHosts: string[] = [];
+let hooksRegistered = false;
 
-  const allowIframe = allowedIframeHosts.length > 0;
+function ensureHooks() {
+  if (hooksRegistered) {
+    return;
+  }
+  hooksRegistered = true;
 
   DOMPurify.addHook(DOMPurifyHook.UponSanitizeAttribute, (_node, data) => {
     if (data.attrName === "style") {
@@ -77,22 +83,34 @@ export function sanitizeMarkdownHtml(rawHtml: string | null | undefined, allowed
     }
   });
 
-  if (allowIframe) {
-    DOMPurify.addHook(DOMPurifyHook.AfterSanitizeAttributes, (node) => {
-      if (node.nodeName === "IFRAME" && !isAllowedIframeSrc(node.getAttribute("src") || "", allowedIframeHosts)) {
-        node.parentNode?.removeChild(node);
-      }
-    });
+  DOMPurify.addHook(DOMPurifyHook.AfterSanitizeAttributes, (node) => {
+    if (node.nodeName !== "IFRAME") {
+      return;
+    }
+    if (!isAllowedIframeSrc(node.getAttribute("src") || "", currentAllowedIframeHosts)) {
+      node.parentNode?.removeChild(node);
+    }
+  });
+}
+
+export function sanitizeMarkdownHtml(rawHtml: string | null | undefined, allowedIframeHosts: string[] = []): string {
+  if (!rawHtml) {
+    return "";
   }
 
-  const sanitized = DOMPurify.sanitize(rawHtml, {
-    ALLOWED_TAGS: allowIframe ? [...BASE_ALLOWED_TAGS, "iframe"] : BASE_ALLOWED_TAGS,
-    ALLOWED_ATTR: allowIframe ? [...BASE_ALLOWED_ATTR, ...IFRAME_ALLOWED_ATTR] : BASE_ALLOWED_ATTR,
-  });
+  const allowIframe = allowedIframeHosts.length > 0;
+  ensureHooks();
 
-  Object.values(DOMPurifyHook).forEach((hook) => {
-    DOMPurify.removeHook(hook);
-  });
-
-  return sanitized;
+  // DOMPurify.sanitize is synchronous, so the module-level host list is only ever read by the hooks
+  // during this call
+  currentAllowedIframeHosts = allowIframe ? allowedIframeHosts : [];
+  try {
+    return DOMPurify.sanitize(rawHtml, {
+      ALLOWED_TAGS: allowIframe ? [...BASE_ALLOWED_TAGS, "iframe"] : BASE_ALLOWED_TAGS,
+      ALLOWED_ATTR: allowIframe ? [...BASE_ALLOWED_ATTR, ...IFRAME_ALLOWED_ATTR] : BASE_ALLOWED_ATTR,
+    });
+  }
+  finally {
+    currentAllowedIframeHosts = [];
+  }
 }

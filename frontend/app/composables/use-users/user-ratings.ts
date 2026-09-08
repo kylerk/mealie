@@ -2,6 +2,15 @@ import { useUserApi } from "~/composables/api";
 import type { UserRatingSummary } from "~/lib/api/types/user";
 
 const userRatings = ref<UserRatingSummary[]>([]);
+// indexed once per change so every recipe card can look up its rating in O(1) instead of scanning
+// the whole list (cards x ratings comparisons on every render)
+const userRatingsByRecipeId = computed(() => {
+  const byId = new Map<string, UserRatingSummary>();
+  for (const rating of userRatings.value) {
+    byId.set(rating.recipeId, rating);
+  }
+  return byId;
+});
 const loading = ref(false);
 const ready = ref(false);
 
@@ -46,6 +55,7 @@ export const useUserSelfRatings = function () {
 
   return {
     userRatings,
+    userRatingsByRecipeId,
     refreshUserRatings,
     setRating,
     ready,

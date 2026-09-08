@@ -43,11 +43,10 @@ const props = withDefaults(defineProps<Props>(), {
   buttonStyle: false,
 });
 
-const { userRatings, refreshUserRatings } = useUserSelfRatings();
+const { userRatingsByRecipeId, refreshUserRatings } = useUserSelfRatings();
 
 const isFavorite = computed(() => {
-  const rating = userRatings.value.find(r => r.recipeId === props.recipeId);
-  return rating?.isFavorite || false;
+  return userRatingsByRecipeId.value.get(props.recipeId)?.isFavorite || false;
 });
 
 async function toggleFavorite() {

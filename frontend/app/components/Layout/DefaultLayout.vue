@@ -112,7 +112,16 @@ const route = useRoute();
 const groupSlug = computed(() => route.params.groupSlug as string || auth.user.value?.groupSlug || "");
 
 const cookbookPreferences = useCookbookPreferences();
-const ownCookbookStore = computed(() => isOwnGroup.value ? useCookbookStore(i18n) : null);
+// create the store once; calling the composable inside the computed would construct a new API
+// client (and re-run the store setup) every time the computed re-evaluated
+let ownCookbookStoreInstance: ReturnType<typeof useCookbookStore> | null = null;
+const ownCookbookStore = computed(() => {
+  if (!isOwnGroup.value) {
+    return null;
+  }
+  ownCookbookStoreInstance ??= useCookbookStore(i18n);
+  return ownCookbookStoreInstance;
+});
 const publicCookbookStoreCache = ref<Record<string, ReturnType<typeof usePublicCookbookStore>>>({});
 
 function getPublicCookbookStore(slug: string) {
