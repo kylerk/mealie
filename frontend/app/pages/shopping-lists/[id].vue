@@ -154,10 +154,8 @@
         {{ smAndUp ? "" : shoppingList.name }}
       </template>
     </BasePageTitle>
-    <BannerWarning
+    <ShoppingListOfflineBanner
       v-if="isOffline"
-      collapsible
-      :title="offlineCopyTime ? $t('shopping-list.offline-copy-title') : $t('shopping-list.you-are-offline')"
       :description="offlineCopyTime
         ? $t('shopping-list.offline-copy-description', { time: offlineCopyTime })
         : $t('shopping-list.you-are-offline-description')"
@@ -387,6 +385,7 @@ import MultiPurposeLabelSection from "~/components/Domain/ShoppingList/MultiPurp
 import ShoppingListAddItemForm from "~/components/Domain/ShoppingList/ShoppingListAddItemForm.vue";
 import ShoppingListItem from "~/components/Domain/ShoppingList/ShoppingListItem.vue";
 import ShoppingListItemEditor from "~/components/Domain/ShoppingList/ShoppingListItemEditor.vue";
+import ShoppingListOfflineBanner from "~/components/Domain/ShoppingList/ShoppingListOfflineBanner.vue";
 import ShoppingListOfflineDebug from "~/components/Domain/ShoppingList/ShoppingListOfflineDebug.vue";
 import { offlineDebugLog, useOfflineDebug } from "~/composables/use-offline-debug";
 import { useShoppingListPage } from "~/composables/shopping-list-page/use-shopping-list-page";
