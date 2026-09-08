@@ -60,6 +60,8 @@ describe("useOfflineCache", () => {
     expect(isNetworkError(new Error("Network Error"))).toBe(true);
     expect(isNetworkError(Object.assign(new Error("Unauthorized"), { response: { status: 401 } }))).toBe(false);
     expect(isNetworkError(Object.assign(new Error("Boom"), { response: { status: 500 } }))).toBe(false);
+    expect(isNetworkError(Object.assign(new Error("Bad Gateway"), { response: { status: 502 } }))).toBe(true);
+    expect(isNetworkError(Object.assign(new Error("Unavailable"), { response: { status: 503 } }))).toBe(true);
     expect(isNetworkError(null)).toBe(false);
   });
 });

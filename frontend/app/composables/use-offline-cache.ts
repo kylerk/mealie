@@ -101,14 +101,17 @@ export function clearOfflineCaches(): void {
 }
 
 /**
- * True for a request that never reached the server (offline, DNS failure, timeout). A response
- * with any status code, even a 5xx, means the server was reachable and the error is not a
- * connectivity problem.
+ * True when a request could not reach the Mealie server: no response at all (offline, DNS failure,
+ * timeout) or a gateway error from a reverse proxy in front of a backend that is down (502/503/504).
+ * Any other status means the server itself answered, so the error is not a connectivity problem.
  */
 export function isNetworkError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
     return false;
   }
-  const maybeAxios = error as { response?: unknown; request?: unknown; code?: string };
-  return maybeAxios.response === undefined || maybeAxios.response === null;
+  const maybeAxios = error as { response?: { status?: number } | null };
+  if (maybeAxios.response === undefined || maybeAxios.response === null) {
+    return true;
+  }
+  return [502, 503, 504].includes(maybeAxios.response.status ?? 0);
 }
