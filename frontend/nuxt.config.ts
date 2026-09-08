@@ -2,6 +2,9 @@ import { defineNuxtConfig } from "nuxt/config";
 
 const AUTH_TOKEN = "mealie.access_token";
 
+// Changes on every build so the service worker refetches the app shell ("/") after a deploy.
+const PWA_SHELL_REVISION = Date.now().toString(36);
+
 export default defineNuxtConfig({
   // Global page headers: https://go.nuxtjs.dev/config-head
   // target: "static",
@@ -224,6 +227,11 @@ export default defineNuxtConfig({
       navigateFallbackAllowlist: [/^(?!\/api|\/docs)/],
       globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
       globIgnores: ["404.html", "200.html", "index.html"],
+      // index.html is served by the backend, so it isn't in the precache manifest above; but
+      // navigateFallback ("/") can only serve a URL that *is* precached. Without this entry the
+      // service worker throws on every navigation while offline and the app opens to a blank page.
+      // Fetching "/" at install time stores exactly what the backend serves.
+      additionalManifestEntries: [{ url: "/", revision: PWA_SHELL_REVISION }],
       cleanupOutdatedCaches: true,
       skipWaiting: true,
       clientsClaim: true,
