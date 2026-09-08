@@ -150,3 +150,40 @@ def test_recipe_image_upload(api_client: TestClient, unique_user: TestUser, reci
     response = api_client.get(f"/api/recipes/{recipe_ingredient_only.slug}", headers=unique_user.token)
     recipe_respons = response.json()
     assert recipe_respons["image"] == image_version
+
+
+def test_recipe_image_is_cacheable(api_client: TestClient, unique_user: TestUser, recipe_ingredient_only: Recipe):
+    file_payload = {"image": data.images_test_image_1.read_bytes()}
+    response = api_client.put(
+        f"/api/recipes/{recipe_ingredient_only.slug}/image",
+        data={"extension": "jpg"},
+        files=file_payload,
+        headers=unique_user.token,
+    )
+    assert response.status_code == 200
+
+    image_url = f"/api/media/recipes/{recipe_ingredient_only.id}/images/min-original.webp"
+    response = api_client.get(image_url)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/webp"
+    assert "immutable" in response.headers["cache-control"]
+    assert len(response.content) > 0
+
+    etag = response.headers["etag"]
+    response = api_client.get(image_url, headers={"If-None-Match": etag})
+    assert response.status_code == 304
+    assert response.content == b""
+
+    response = api_client.get(image_url, headers={"If-None-Match": '"stale"'})
+    assert response.status_code == 200
+
+
+def test_recipe_image_missing_does_not_create_directories(api_client: TestClient):
+    from uuid import uuid4
+
+    from mealie.schema.recipe import Recipe as RecipeSchema
+
+    recipe_id = uuid4()
+    response = api_client.get(f"/api/media/recipes/{recipe_id}/images/original.webp")
+    assert response.status_code == 404
+    assert not RecipeSchema.directory_from_id(recipe_id, create=False).exists()

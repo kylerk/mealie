@@ -73,8 +73,8 @@ class RecipeTimelineEventOut(RecipeTimelineEventCreate):
         ]
 
     @classmethod
-    def image_dir_from_id(cls, recipe_id: UUID4 | str, timeline_event_id: UUID4 | str) -> Path:
-        return Recipe.timeline_image_dir_from_id(recipe_id, timeline_event_id)
+    def image_dir_from_id(cls, recipe_id: UUID4 | str, timeline_event_id: UUID4 | str, create: bool = True) -> Path:
+        return Recipe.timeline_image_dir_from_id(recipe_id, timeline_event_id, create)
 
     @property
     def image_dir(self) -> Path:

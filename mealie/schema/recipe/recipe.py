@@ -196,27 +196,32 @@ class Recipe(RecipeSummary):
     comments: list[RecipeCommentOut] | None = []
 
     @staticmethod
-    def _get_dir(dir: Path) -> Path:
-        """Gets a directory and creates it if it doesn't exist"""
+    def _get_dir(dir: Path, create: bool = True) -> Path:
+        """Gets a directory and creates it if it doesn't exist (unless `create` is False)"""
 
-        dir.mkdir(exist_ok=True, parents=True)
+        if create:
+            dir.mkdir(exist_ok=True, parents=True)
         return dir
 
     @classmethod
-    def directory_from_id(cls, recipe_id: UUID4 | str) -> Path:
-        return cls._get_dir(app_dirs.RECIPE_DATA_DIR.joinpath(str(recipe_id)))
+    def directory_from_id(cls, recipe_id: UUID4 | str, create: bool = True) -> Path:
+        return cls._get_dir(app_dirs.RECIPE_DATA_DIR.joinpath(str(recipe_id)), create)
 
     @classmethod
-    def asset_dir_from_id(cls, recipe_id: UUID4 | str) -> Path:
-        return cls._get_dir(cls.directory_from_id(recipe_id).joinpath("assets"))
+    def asset_dir_from_id(cls, recipe_id: UUID4 | str, create: bool = True) -> Path:
+        return cls._get_dir(cls.directory_from_id(recipe_id, create).joinpath("assets"), create)
 
     @classmethod
-    def image_dir_from_id(cls, recipe_id: UUID4 | str) -> Path:
-        return cls._get_dir(cls.directory_from_id(recipe_id).joinpath("images"))
+    def image_dir_from_id(cls, recipe_id: UUID4 | str, create: bool = True) -> Path:
+        return cls._get_dir(cls.directory_from_id(recipe_id, create).joinpath("images"), create)
 
     @classmethod
-    def timeline_image_dir_from_id(cls, recipe_id: UUID4 | str, timeline_event_id: UUID4 | str) -> Path:
-        return cls._get_dir(cls.image_dir_from_id(recipe_id).joinpath("timeline").joinpath(str(timeline_event_id)))
+    def timeline_image_dir_from_id(
+        cls, recipe_id: UUID4 | str, timeline_event_id: UUID4 | str, create: bool = True
+    ) -> Path:
+        return cls._get_dir(
+            cls.image_dir_from_id(recipe_id, create).joinpath("timeline").joinpath(str(timeline_event_id)), create
+        )
 
     @property
     def directory(self) -> Path:

@@ -219,9 +219,10 @@ class PrivateUser(UserOut):
         return 0 if v is None else v
 
     @staticmethod
-    def get_directory(user_id: UUID4 | str) -> Path:
+    def get_directory(user_id: UUID4 | str, create: bool = True) -> Path:
         user_dir = get_app_dirs().USER_DIR / str(user_id)
-        user_dir.mkdir(parents=True, exist_ok=True)
+        if create:
+            user_dir.mkdir(parents=True, exist_ok=True)
         return user_dir
 
     @property
