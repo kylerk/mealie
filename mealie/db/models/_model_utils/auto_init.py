@@ -81,10 +81,19 @@ def handle_one_to_many_list(
 
     cfg = _get_config(relation_cls)
 
-    for elem in all_elements:
-        elem_id = elem.get(get_attr, None) if isinstance(elem, dict) else elem
-        stmt = select(relation_cls).filter_by(**{get_attr: elem_id})
-        existing_elem = session.execute(stmt).scalars().one_or_none()
+    # Look up every referenced element in a single query instead of one round trip per element.
+    # Saving a recipe touches ingredients, tags, categories and tools this way, so this was the
+    # dominant cost of a write.
+    elem_ids = [elem.get(get_attr, None) if isinstance(elem, dict) else elem for elem in all_elements]
+    lookup_ids = [elem_id for elem_id in elem_ids if elem_id is not None]
+    existing_by_id: dict = {}
+    if lookup_ids:
+        stmt = select(relation_cls).filter(getattr(relation_cls, get_attr).in_(lookup_ids))
+        for existing in session.execute(stmt).scalars().all():
+            existing_by_id.setdefault(getattr(existing, get_attr), existing)
+
+    for elem, elem_id in zip(all_elements, elem_ids, strict=True):
+        existing_elem = existing_by_id.get(elem_id) if elem_id is not None else None
 
         if existing_elem is None and isinstance(elem, dict):
             elems_to_create.append(elem)

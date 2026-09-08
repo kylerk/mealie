@@ -384,16 +384,26 @@ class RecipeService(RecipeServiceBase):
 
         return new_recipe
 
-    def has_recursive_recipe_link(self, recipe: Recipe, path: set[str] | None = None):
+    def has_recursive_recipe_link(
+        self, recipe: Recipe, path: set[str] | None = None, visited: set[str] | None = None
+    ) -> bool:
         """Recursively checks if a recipe links to itself through its ingredients."""
         if path is None:
             path = set()
+        if visited is None:
+            visited = set()
 
         recipe_id = str(getattr(recipe, "id", None))
 
         # Check if this recipe is already in the current path (cycle detected)
         if recipe_id in path:
             return True
+
+        # A recipe that was fully explored on another branch without finding a cycle can't start one now.
+        # Without this, a recipe referenced from several places (a "diamond") is loaded and walked again
+        # for every path that reaches it.
+        if recipe_id in visited:
+            return False
 
         # Add to the current path
         path.add(recipe_id)
@@ -402,16 +412,25 @@ class RecipeService(RecipeServiceBase):
             ingredients = getattr(recipe, "recipe_ingredient", [])
             for ing in ingredients:
                 try:
-                    sub_recipe = self.get_one(ing.referenced_recipe.id)
+                    referenced_id = ing.referenced_recipe.id
+                except AttributeError:
+                    continue
+
+                if str(referenced_id) in visited:
+                    continue
+
+                try:
+                    sub_recipe = self.get_one(referenced_id)
                 except (AttributeError, exceptions.NoEntryFound):
                     continue
 
                 # Recursively check - path is modified in place and cleaned up via backtracking
-                if self.has_recursive_recipe_link(sub_recipe, path):
+                if self.has_recursive_recipe_link(sub_recipe, path, visited):
                     return True
         finally:
             # Backtrack: remove this recipe from the path when done exploring this branch
             path.discard(recipe_id)
+            visited.add(recipe_id)
 
         return False
 
