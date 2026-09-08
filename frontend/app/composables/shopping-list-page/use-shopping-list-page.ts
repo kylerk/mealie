@@ -51,6 +51,7 @@ export function useShoppingListPage(listId: string) {
     isOffline,
     offlineCopySavedAt,
     lastSyncedAt,
+    queueSummary,
     refresh: baseRefresh,
     startPolling,
     stopPolling,
@@ -175,6 +176,7 @@ export function useShoppingListPage(listId: string) {
     isOffline,
     offlineCopySavedAt,
     lastSyncedAt,
+    queueSummary,
 
     // Sub-composables
     ...state,

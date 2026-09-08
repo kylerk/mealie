@@ -1,6 +1,7 @@
 import { useOnline, useIdle } from "@vueuse/core";
 import type { ShoppingListOut } from "~/lib/api/types/household";
 import { useShoppingListItemActions } from "~/composables/shopping-list-page/sub-composables/use-shopping-list-item-actions";
+import { offlineDebugLog } from "~/composables/use-offline-debug";
 
 /**
  * Composable for managing shopping list data fetching and polling
@@ -16,7 +17,7 @@ export function useShoppingListData(
   const online = useOnline();
   const { idle } = useIdle(5 * 60 * 1000); // 5 minutes
   const shoppingListItemActions = useShoppingListItemActions(listId);
-  const { offlineCopySavedAt, lastSyncedAt } = shoppingListItemActions;
+  const { offlineCopySavedAt, lastSyncedAt, queueSummary } = shoppingListItemActions;
 
   // "Offline" for this page means the server can't be reached, whether or not the browser thinks it
   // has a connection: a phone with one bar and no throughput still reports online, but the list
@@ -59,6 +60,10 @@ export function useShoppingListData(
       // the list.
       if (!shoppingList.value && newListValue) {
         shoppingList.value = newListValue;
+        offlineDebugLog(`refresh: offline, showing device copy (${newListValue.listItems?.length ?? 0} items)`);
+      }
+      else {
+        offlineDebugLog(`refresh: offline, kept in-memory list (fetch ${newListValue ? "returned data" : "returned nothing"})`);
       }
       updateListItemOrder();
       return;
@@ -76,6 +81,7 @@ export function useShoppingListData(
   async function pollForChanges(updateListItemOrder: () => void) {
     // pause polling if the user isn't active or we're busy
     if (idle.value || loadingCounter.value) {
+      offlineDebugLog(`poll skipped (${idle.value ? "idle" : `loadingCounter=${loadingCounter.value}`})`);
       return;
     }
 
@@ -127,6 +133,7 @@ export function useShoppingListData(
     isOffline,
     offlineCopySavedAt,
     lastSyncedAt,
+    queueSummary,
     fetchShoppingList,
     refresh,
     startPolling,

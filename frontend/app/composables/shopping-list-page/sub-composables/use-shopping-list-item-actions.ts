@@ -1,6 +1,7 @@
 import { useEventListener, useLocalStorage, useOnline, useThrottleFn } from "@vueuse/core";
 import { useUserApi } from "~/composables/api";
 import { readOfflineCache, writeOfflineCache } from "~/composables/use-offline-cache";
+import { offlineDebugLog } from "~/composables/use-offline-debug";
 import type { ShoppingListItemOut, ShoppingListOut } from "~/lib/api/types/household";
 import type { RequestResponse } from "~/lib/api/types/non-generated";
 
@@ -42,6 +43,12 @@ export function useShoppingListItemActions(shoppingListId: string) {
   const storage = useLocalStorage(localStorageKey, {} as Storage, { deep: true });
   const queue = reactive(getQueue());
   const queueEmpty = computed(() => !queue.create.length && !queue.update.length && !queue.delete.length);
+  const queueSummary = computed(() => ({
+    create: queue.create.length,
+    update: queue.update.length,
+    delete: queue.delete.length,
+    lastUpdate: queue.lastUpdate,
+  }));
   if (queueEmpty.value) {
     queue.lastUpdate = Date.now();
   }
@@ -152,16 +159,22 @@ export function useShoppingListItemActions(shoppingListId: string) {
       writeOfflineCache(offlineCacheKey, list);
       offlineCopySavedAt.value = null;
       lastSyncedAt.value = Date.now();
+      offlineDebugLog(`getList: server returned ${list.listItems?.length ?? 0} items; device copy saved`);
     }
     else {
       const cached = readOfflineCache<ShoppingListOut>(offlineCacheKey);
+      const reason = response.error?.message ?? (response.response ? `HTTP ${response.response.status}` : "no response");
       if (!cached) {
         offlineCopySavedAt.value = null;
+        offlineDebugLog(`getList: request failed (${reason}) and there is no device copy`);
         return null;
       }
       list = cached.value;
       offlineCopySavedAt.value = cached.savedAt;
       lastSyncedAt.value = cached.savedAt;
+      offlineDebugLog(
+        `getList: request failed (${reason}); using device copy from ${new Date(cached.savedAt).toLocaleTimeString()} with ${cached.value.listItems?.length ?? 0} items`,
+      );
     }
 
     // Merge pending local changes (both online and offline)
@@ -269,6 +282,12 @@ export function useShoppingListItemActions(shoppingListId: string) {
           // request really succeeded; otherwise they stay queued for the next attempt.
           if (isOnline.value && !response?.error) {
             clearQueueItems(itemQueueType, itemIdsToProcess);
+            offlineDebugLog(`queue: sent ${itemIdsToProcess.length} ${itemQueueType}(s)`);
+          }
+          else {
+            offlineDebugLog(
+              `queue: kept ${itemIdsToProcess.length} ${itemQueueType}(s) (online=${isOnline.value}, error=${response?.error?.message ?? "none"})`,
+            );
           }
         });
     }
@@ -315,6 +334,7 @@ export function useShoppingListItemActions(shoppingListId: string) {
     process,
     offlineCopySavedAt,
     lastSyncedAt,
+    queueSummary,
 
     __testing__: {
       queue,

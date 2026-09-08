@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { AppInfo } from "~/lib/api/types/admin";
 import { readOfflineCache, writeOfflineCache } from "~/composables/use-offline-cache";
+import { offlineDebugLog } from "~/composables/use-offline-debug";
 
 const CACHE_KEY = "app-info";
 
@@ -20,6 +21,7 @@ export default defineNuxtPlugin({
         throw error;
       }
       console.warn("Server unreachable; using the last known app info");
+      offlineDebugLog(`app-info: server unreachable (${(error as any)?.message ?? error}); using cached copy`);
       appInfo = cached.value;
     }
 

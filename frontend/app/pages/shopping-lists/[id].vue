@@ -365,6 +365,17 @@
       </section>
     </v-lazy>
     <WakelockSwitch />
+    <ShoppingListOfflineDebug
+      v-if="offlineDebug.enabled.value"
+      :list-id="id"
+      :is-offline="isOffline"
+      :offline-copy-saved-at="offlineCopySavedAt"
+      :last-synced-at="lastSyncedAt"
+      :loading-counter="loadingCounter"
+      :item-count="shoppingList.listItems?.length ?? 0"
+      :queue-summary="queueSummary"
+      @refresh="refresh"
+    />
   </v-container>
 </template>
 
@@ -375,6 +386,8 @@ import MultiPurposeLabelSection from "~/components/Domain/ShoppingList/MultiPurp
 import ShoppingListAddItemForm from "~/components/Domain/ShoppingList/ShoppingListAddItemForm.vue";
 import ShoppingListItem from "~/components/Domain/ShoppingList/ShoppingListItem.vue";
 import ShoppingListItemEditor from "~/components/Domain/ShoppingList/ShoppingListItemEditor.vue";
+import ShoppingListOfflineDebug from "~/components/Domain/ShoppingList/ShoppingListOfflineDebug.vue";
+import { offlineDebugLog, useOfflineDebug } from "~/composables/use-offline-debug";
 import { useShoppingListPage } from "~/composables/shopping-list-page/use-shopping-list-page";
 import { useLabelStore, useUnitStore, useFoodStore } from "~/composables/store";
 import { useShoppingListPreferences } from "~/composables/use-users/preferences";
@@ -389,6 +402,15 @@ useSeoMeta({
 
 const route = useRoute();
 const id = route.params.id as string;
+
+// Offline diagnostics panel: open the list with ?debug=offline to turn it on; "Hide" turns it off.
+const offlineDebug = useOfflineDebug();
+if (route.query.debug === "offline") {
+  offlineDebug.enable();
+}
+if (offlineDebug.enabled.value) {
+  offlineDebugLog(`page opened (${navigator.onLine ? "browser online" : "browser offline"})`);
+}
 
 const editingItem = ref<string | undefined>(undefined);
 const shoppingListPage = useShoppingListPage(id);
@@ -413,7 +435,9 @@ const {
   copyListItems,
   toggleReorderLabelsDialog,
   isOffline,
+  offlineCopySavedAt,
   lastSyncedAt,
+  queueSummary,
   createEditorOpen,
   createListItemData,
   createListItem,
@@ -430,6 +454,7 @@ const {
   recipeList,
   removeRecipeReferenceToList,
   addRecipeReferenceToList,
+  refresh,
 } = shoppingListPage;
 
 // While offline, whatever is on screen is a copy last confirmed by the server at lastSyncedAt
