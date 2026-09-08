@@ -7,6 +7,14 @@ import type { RequestResponse } from "~/lib/api/types/non-generated";
 
 const localStorageKey = "shopping-list-queue";
 const offlineCacheKeyPrefix = "shopping-list:";
+
+// Without a timeout a request to a phone with "bars but no data" hangs for the OS's TCP timeout
+// (often a minute or more) before the page can fall back to the device copy. The first fetch
+// after opening the list gives up quickly so offline mode appears within seconds; later fetches
+// get a little longer, and background retries while offline stay short so they never pile up.
+const FIRST_FETCH_TIMEOUT_MS = 3000;
+const FETCH_TIMEOUT_MS = 8000;
+const OFFLINE_RETRY_TIMEOUT_MS = 6000;
 const queueTimeout = 5 * 60 * 1000; // 5 minutes
 
 type ItemQueueType = "create" | "update" | "delete";
@@ -40,6 +48,14 @@ export function useShoppingListItemActions(shoppingListId: string) {
    * page say "copy from 10:32" the moment the connection drops, without waiting for a fetch to fail.
    */
   const lastSyncedAt = ref<number | null>(readOfflineCache<ShoppingListOut>(offlineCacheKey)?.savedAt ?? null);
+
+  let hasAttemptedFetch = false;
+  function requestTimeout(): number {
+    if (!hasAttemptedFetch) {
+      return FIRST_FETCH_TIMEOUT_MS;
+    }
+    return offlineCopySavedAt.value !== null ? OFFLINE_RETRY_TIMEOUT_MS : FETCH_TIMEOUT_MS;
+  }
   const storage = useLocalStorage(localStorageKey, {} as Storage, { deep: true });
   const queue = reactive(getQueue());
   const queueEmpty = computed(() => !queue.create.length && !queue.update.length && !queue.delete.length);
@@ -150,7 +166,9 @@ export function useShoppingListItemActions(shoppingListId: string) {
   }
 
   async function getList() {
-    const response = await api.shopping.lists.getOne(shoppingListId);
+    const timeout = requestTimeout();
+    hasAttemptedFetch = true;
+    const response = await api.shopping.lists.getOne(shoppingListId, { timeout });
     let list = response.data;
 
     if (list) {
@@ -163,7 +181,7 @@ export function useShoppingListItemActions(shoppingListId: string) {
     }
     else {
       const cached = readOfflineCache<ShoppingListOut>(offlineCacheKey);
-      const reason = response.error?.message ?? (response.response ? `HTTP ${response.response.status}` : "no response");
+      const reason = `${response.error?.message ?? (response.response ? `HTTP ${response.response.status}` : "no response")}, timeout ${timeout} ms`;
       if (!cached) {
         offlineCopySavedAt.value = null;
         offlineDebugLog(`getList: request failed (${reason}) and there is no device copy`);
@@ -315,9 +333,10 @@ export function useShoppingListItemActions(shoppingListId: string) {
     // We send each bulk request one at a time, since the backend may merge items
     // "failures" here refers to an actual error, rather than failing to reach the backend
     let failures = 0;
-    if (!(await processQueueItems(items => api.shopping.items.deleteMany(items), "delete"))) failures++;
-    if (!(await processQueueItems(items => api.shopping.items.updateMany(items), "update"))) failures++;
-    if (!(await processQueueItems(items => api.shopping.items.createMany(items), "create"))) failures++;
+    const config = { timeout: requestTimeout() };
+    if (!(await processQueueItems(items => api.shopping.items.deleteMany(items, config), "delete"))) failures++;
+    if (!(await processQueueItems(items => api.shopping.items.updateMany(items, config), "update"))) failures++;
+    if (!(await processQueueItems(items => api.shopping.items.createMany(items, config), "create"))) failures++;
 
     // If we're online, or the queue is empty, the queue is fully processed, so we're up to date
     // Otherwise, if all three queue processes failed, we've already reset the queue, so we need to reset the date

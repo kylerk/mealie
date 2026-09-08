@@ -213,7 +213,7 @@ describe("signIn", () => {
     await auth.signIn(new FormData());
 
     expect(auth.token.value).toBe(token);
-    expect(axiosMock.get).toHaveBeenCalledWith("/api/users/self");
+    expect(axiosMock.get).toHaveBeenCalledWith("/api/users/self", expect.objectContaining({ timeout: expect.any(Number) }));
     expect(auth.status.value).toBe("authenticated");
   });
 

@@ -9,7 +9,8 @@ export default defineNuxtPlugin({
   async setup() {
     let appInfo: AppInfo;
     try {
-      const { data } = await axios.get<AppInfo>("/api/app/about");
+      // the app can't render until this resolves, so give up quickly and use the cached copy
+      const { data } = await axios.get<AppInfo>("/api/app/about", { timeout: 5000 });
       appInfo = data;
       writeOfflineCache(CACHE_KEY, data);
     }

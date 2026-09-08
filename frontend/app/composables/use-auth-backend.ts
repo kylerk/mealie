@@ -34,6 +34,8 @@ const MAX_REFRESH_RETRIES = 5;
 
 /** Offline-cache key for the last user the server confirmed, so the app can open without a connection. */
 const CACHED_SESSION_KEY = "user-self";
+/** The app waits for this request before rendering anything; an unreachable server must not hold it for long. */
+const SESSION_FETCH_TIMEOUT_MS = 5000;
 
 const authUser = ref<UserOut | null>(null);
 const authStatus = ref<"loading" | "authenticated" | "unauthenticated">("loading");
@@ -130,7 +132,7 @@ export const useAuthBackend = function (): AuthState {
 
     authStatus.value = "loading";
     try {
-      const { data } = await $axios.get<UserOut>("/api/users/self");
+      const { data } = await $axios.get<UserOut>("/api/users/self", { timeout: SESSION_FETCH_TIMEOUT_MS });
       authUser.value = data;
       authStatus.value = "authenticated";
       writeOfflineCache(CACHED_SESSION_KEY, data);

@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from "axios";
 import { BaseCRUDAPI } from "../base/base-clients";
 import type { ApiRequestInstance } from "~/lib/api/types/non-generated";
 import type {
@@ -50,22 +51,22 @@ export class ShoppingListItemsApi extends BaseCRUDAPI<
   baseRoute = routes.shoppingListItems;
   itemRoute = routes.shoppingListItemsId;
 
-  async createMany(items: ShoppingListItemCreate[]) {
-    return await this.requests.post(routes.shoppingListItemsCreateBulk, items);
+  async createMany(items: ShoppingListItemCreate[], config?: AxiosRequestConfig) {
+    return await this.requests.post(routes.shoppingListItemsCreateBulk, items, config);
   }
 
-  async updateMany(items: ShoppingListItemOut[]) {
-    return await this.requests.put(routes.shoppingListItems, items);
+  async updateMany(items: ShoppingListItemOut[], config?: AxiosRequestConfig) {
+    return await this.requests.put(routes.shoppingListItems, items, config);
   }
 
-  async deleteMany(items: ShoppingListItemOut[]) {
+  async deleteMany(items: ShoppingListItemOut[], config?: AxiosRequestConfig) {
     let query = "?";
 
     items.forEach((item) => {
       query += `ids=${item.id}&`;
     });
 
-    return await this.requests.delete(routes.shoppingListItems + query);
+    return await this.requests.delete(routes.shoppingListItems + query, config);
   }
 }
 
