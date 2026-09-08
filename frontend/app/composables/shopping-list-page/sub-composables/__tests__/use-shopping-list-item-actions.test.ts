@@ -33,6 +33,7 @@ describe("useShoppingListItemActions", () => {
     updateItem,
     process,
     offlineCopySavedAt,
+    lastSyncedAt,
     __testing__: { queue, clearQueueItems },
   } = useShoppingListItemActions("list_id");
 
@@ -48,6 +49,7 @@ describe("useShoppingListItemActions", () => {
     const list = await getList();
     expect(list).toBe(MOCK_SHOPPING_LIST);
     expect(offlineCopySavedAt.value).toBeNull();
+    expect(lastSyncedAt.value).toBeTypeOf("number");
   });
   describe("offline copy", () => {
     test("getList falls back to the copy saved on the device when the server is unreachable", async () => {

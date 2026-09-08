@@ -50,6 +50,7 @@ export function useShoppingListPage(listId: string) {
   const {
     isOffline,
     offlineCopySavedAt,
+    lastSyncedAt,
     refresh: baseRefresh,
     startPolling,
     stopPolling,
@@ -173,6 +174,7 @@ export function useShoppingListPage(listId: string) {
     itemsByLabel,
     isOffline,
     offlineCopySavedAt,
+    lastSyncedAt,
 
     // Sub-composables
     ...state,

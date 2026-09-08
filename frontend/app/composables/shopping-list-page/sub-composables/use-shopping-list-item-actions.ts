@@ -32,6 +32,13 @@ export function useShoppingListItemActions(shoppingListId: string) {
    * records when that copy was saved; null while the list is coming from the server.
    */
   const offlineCopySavedAt = ref<number | null>(null);
+
+  /**
+   * When the list currently held in memory was last confirmed by the server: the time of the last
+   * successful fetch, or the save time of the device copy if that is what we're showing. Lets the
+   * page say "copy from 10:32" the moment the connection drops, without waiting for a fetch to fail.
+   */
+  const lastSyncedAt = ref<number | null>(readOfflineCache<ShoppingListOut>(offlineCacheKey)?.savedAt ?? null);
   const storage = useLocalStorage(localStorageKey, {} as Storage, { deep: true });
   const queue = reactive(getQueue());
   const queueEmpty = computed(() => !queue.create.length && !queue.update.length && !queue.delete.length);
@@ -144,6 +151,7 @@ export function useShoppingListItemActions(shoppingListId: string) {
       // so the copy is exactly what the server last told us)
       writeOfflineCache(offlineCacheKey, list);
       offlineCopySavedAt.value = null;
+      lastSyncedAt.value = Date.now();
     }
     else {
       const cached = readOfflineCache<ShoppingListOut>(offlineCacheKey);
@@ -153,6 +161,7 @@ export function useShoppingListItemActions(shoppingListId: string) {
       }
       list = cached.value;
       offlineCopySavedAt.value = cached.savedAt;
+      lastSyncedAt.value = cached.savedAt;
     }
 
     // Merge pending local changes (both online and offline)
@@ -305,6 +314,7 @@ export function useShoppingListItemActions(shoppingListId: string) {
     deleteItem,
     process,
     offlineCopySavedAt,
+    lastSyncedAt,
 
     __testing__: {
       queue,

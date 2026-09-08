@@ -16,7 +16,7 @@ export function useShoppingListData(
   const online = useOnline();
   const { idle } = useIdle(5 * 60 * 1000); // 5 minutes
   const shoppingListItemActions = useShoppingListItemActions(listId);
-  const { offlineCopySavedAt } = shoppingListItemActions;
+  const { offlineCopySavedAt, lastSyncedAt } = shoppingListItemActions;
 
   // "Offline" for this page means the server can't be reached, whether or not the browser thinks it
   // has a connection: a phone with one bar and no throughput still reports online, but the list
@@ -126,6 +126,7 @@ export function useShoppingListData(
   return {
     isOffline,
     offlineCopySavedAt,
+    lastSyncedAt,
     fetchShoppingList,
     refresh,
     startPolling,
