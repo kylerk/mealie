@@ -148,6 +148,8 @@
             <v-list-item v-if="canManage" :prepend-icon="$globals.icons.manageData" :title="$t('data-pages.data-management')" to="/group/data" />
             <v-divider v-if="isAdmin" class="my-2" />
             <v-list-item v-if="isAdmin" :prepend-icon="$globals.icons.wrench" :title="$t('settings.admin-settings')" to="/admin/site-settings" />
+            <v-divider v-if="loggedIn" class="my-2" />
+            <v-list-item v-if="loggedIn" :prepend-icon="$globals.icons.logout" :title="$t('user.logout')" @click="logout" />
           </v-list>
         </v-menu>
       </v-list>
@@ -182,6 +184,15 @@ const props = defineProps({
 const modelValue = defineModel<boolean>({ default: false });
 
 const auth = useMealieAuth();
+
+async function logout() {
+  try {
+    await auth.signOut("/login?direct=1");
+  }
+  catch (e) {
+    console.error(e);
+  }
+}
 const sessionUser = computed(() => auth.user.value);
 const { loggedIn, isOwnGroup } = useLoggedInState();
 const isAdmin = computed(() => auth.user.value?.admin);

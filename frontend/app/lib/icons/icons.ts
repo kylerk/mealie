@@ -35,6 +35,7 @@ import {
   mdiCheckboxMultipleOutline,
   mdiChefHat,
   mdiChevronDown,
+  mdiChevronUp,
   mdiChevronRight,
   mdiChevronLeft,
   mdiClipboardCheck,
@@ -308,6 +309,7 @@ export const icons = {
   back: mdiArrowLeftBoldOutline,
   slotMachine: mdiSlotMachine,
   chevronDown: mdiChevronDown,
+  chevronUp: mdiChevronUp,
   chevronRight: mdiChevronRight,
   chevronLeft: mdiChevronLeft,
 };

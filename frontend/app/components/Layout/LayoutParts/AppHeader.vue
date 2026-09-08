@@ -58,19 +58,9 @@
       >
         <v-icon> {{ $globals.icons.search }}</v-icon>
       </v-btn>
+      <!-- Logout lives in the sidebar's settings menu; a one-tap button here was too easy to hit by accident -->
       <v-btn
-        v-if="loggedIn"
-        :variant="smAndUp ? 'text' : undefined"
-        :icon="xs"
-        @click="logout()"
-      >
-        <v-icon :start="smAndUp">
-          {{ $globals.icons.logout }}
-        </v-icon>
-        {{ smAndUp ? $t("user.logout") : "" }}
-      </v-btn>
-      <v-btn
-        v-else
+        v-if="!loggedIn"
         variant="text"
         nuxt
         to="/login"
@@ -98,7 +88,7 @@ const auth = useMealieAuth();
 const { loggedIn } = useLoggedInState();
 const route = useRoute();
 const groupSlug = computed(() => route.params.groupSlug as string || auth.user.value?.groupSlug || "");
-const { xs, smAndUp } = useDisplay();
+const { xs } = useDisplay();
 
 const routerLink = computed(() => groupSlug.value ? `/g/${groupSlug.value}` : "/");
 const domSearchDialog = ref<InstanceType<typeof RecipeDialogSearch> | null>(null);
@@ -122,15 +112,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener("keydown", handleKeyEvent);
 });
-
-async function logout() {
-  try {
-    await auth.signOut("/login?direct=1");
-  }
-  catch (e) {
-    console.error(e);
-  }
-}
 </script>
 
 <style scoped>

@@ -156,6 +156,7 @@
     </BasePageTitle>
     <BannerWarning
       v-if="isOffline"
+      collapsible
       :title="offlineCopyTime ? $t('shopping-list.offline-copy-title') : $t('shopping-list.you-are-offline')"
       :description="offlineCopyTime
         ? $t('shopping-list.offline-copy-description', { time: offlineCopyTime })
