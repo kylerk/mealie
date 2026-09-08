@@ -159,7 +159,6 @@
 </template>
 
 <script setup lang="ts">
-import { useOnline } from "@vueuse/core";
 import RecipeIngredientListItem from "../Recipe/RecipeIngredientListItem.vue";
 import ShoppingListItemEditor from "./ShoppingListItemEditor.vue";
 import RecipeList from "~/components/Domain/Recipe/RecipeList.vue";
@@ -187,6 +186,12 @@ const props = defineProps({
     default: undefined,
   },
   edit: {
+    type: Boolean,
+    default: false,
+  },
+  // provided by the page so a long list doesn't register one pair of online/offline window
+  // listeners per row
+  offline: {
     type: Boolean,
     default: false,
   },
@@ -218,8 +223,7 @@ onMounted(() => {
 const i18n = useI18n();
 const displayRecipeRefs = ref(false);
 const itemLabelCols = computed<string>(() => (model.value?.checked ? "auto" : "6"));
-const online = useOnline();
-const isOffline = computed(() => online.value === false);
+const isOffline = computed(() => props.offline);
 
 type actions = { text: string; event: string; icon?: string; to?: string };
 

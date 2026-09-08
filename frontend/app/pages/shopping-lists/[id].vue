@@ -236,6 +236,7 @@
                     :units="allUnits || []"
                     :foods="allFoods || []"
                     :recipes="recipeMap"
+                    :offline="isOffline"
                     @checked="saveListItem"
                     @save="(item) => {
                       editingItem = undefined;
@@ -288,6 +289,7 @@
                   :labels="allLabels || []"
                   :units="allUnits || []"
                   :foods="allFoods || []"
+                  :offline="isOffline"
                   @checked="saveListItem"
                   @save="saveListItem"
                   @delete="deleteListItem(item)"

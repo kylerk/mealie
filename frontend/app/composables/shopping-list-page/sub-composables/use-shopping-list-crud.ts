@@ -107,12 +107,14 @@ export function useShoppingListCrud(
 
     shoppingListItemActions.deleteItem(item);
 
-    // remove the item from the list immediately so the user sees the change
+    // remove the item from the list immediately so the user sees the change; the regular poll
+    // reconciles with the backend, the same way saveListItem works, so there's no need to
+    // re-download the whole list for every deletion
     if (shoppingList.value.listItems) {
       shoppingList.value.listItems = shoppingList.value.listItems.filter(itm => itm.id !== item.id);
     }
 
-    refresh();
+    updateListItemOrder();
   }
 
   function deleteListItems(items: ShoppingListItemOut[]) {

@@ -1,4 +1,4 @@
-import { useLocalStorage, useOnline } from "@vueuse/core";
+import { useEventListener, useLocalStorage, useOnline, useThrottleFn } from "@vueuse/core";
 import { useUserApi } from "~/composables/api";
 import type { ShoppingListItemOut, ShoppingListOut } from "~/lib/api/types/household";
 import type { RequestResponse } from "~/lib/api/types/non-generated";
@@ -30,17 +30,33 @@ export function useShoppingListItemActions(shoppingListId: string) {
     queue.lastUpdate = Date.now();
   }
 
-  storage.value[shoppingListId] = { ...queue };
+  // Persisting the queue serialises every list's queue to localStorage on the main thread. Ticking
+  // through a long list fires this on every tap, so the write is throttled (trailing edge), and
+  // flushed immediately when the page is hidden or unloaded so an offline edit is never lost.
+  function persistQueue() {
+    storage.value[shoppingListId] = { ...queue };
+  }
+  const persistQueueThrottled = useThrottleFn(persistQueue, 500, true, false);
+
+  persistQueue();
   watch(
     () => queue,
-    (value) => {
-      storage.value[shoppingListId] = { ...value };
+    () => {
+      persistQueueThrottled();
     },
     {
       deep: true,
-      immediate: true,
     },
   );
+
+  if (import.meta.client) {
+    useEventListener(window, "pagehide", persistQueue);
+    useEventListener(document, "visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        persistQueue();
+      }
+    });
+  }
 
   function isValidQueueObject(obj: any): obj is ShoppingListQueue {
     if (typeof obj !== "object" || obj === null) {

@@ -11,7 +11,10 @@ export function useShoppingListData(
   loadingCounter: Ref<number>,
   maxAttempts = 17280,
 ) {
-  const isOffline = computed(() => useOnline().value === false);
+  // useOnline registers window listeners, so it must be called once in setup scope rather than
+  // inside the computed (which would register a fresh pair of listeners on every re-evaluation)
+  const online = useOnline();
+  const isOffline = computed(() => online.value === false);
   const { idle } = useIdle(5 * 60 * 1000); // 5 minutes
   const shoppingListItemActions = useShoppingListItemActions(listId);
 
