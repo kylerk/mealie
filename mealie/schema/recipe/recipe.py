@@ -358,57 +358,49 @@ class Recipe(RecipeSummary):
         Should search also look at tags?
         """
 
+        # The ingredient scan is the expensive half of a search (a trigram or LIKE pass over every
+        # ingredient row), and the resulting query is executed twice per request: once to count and
+        # once to fetch the page. So the scan is run exactly once here and only the *distinct recipe
+        # ids* it yields are bound into the main query. The previous implementation bound one id per
+        # matching ingredient row (many per recipe), which produced very large statements.
+        # If a search term matches an unreasonable number of recipes the ids stay in the database as
+        # a subquery instead, so we never exceed the bind-parameter limits of SQLite/Postgres.
         if search_type is SearchType.fuzzy:
-            # I would prefer to just do this in the recipe_ingredient.any part of the main query,
-            # but it turns out that at least sqlite wont use indexes for that correctly anymore and
-            # takes a big hit, so prefiltering it is
-            ingredient_ids = (
-                session.execute(
-                    select(RecipeIngredientModel.id).filter(
-                        or_(
-                            RecipeIngredientModel.note_normalized.op("%>")(search),
-                            RecipeIngredientModel.original_text_normalized.op("%>")(search),
-                        )
-                    )
-                )
-                .scalars()
-                .all()
-            )
-
             session.execute(text(f"set pg_trgm.word_similarity_threshold = {cls._fuzzy_similarity_threshold};"))
-            return query.filter(
-                or_(
-                    RecipeModel.name_normalized.op("%>")(search),
-                    RecipeModel.description_normalized.op("%>")(search),
-                    RecipeModel.recipe_ingredient.any(RecipeIngredientModel.id.in_(ingredient_ids)),
-                )
-            ).order_by(  # trigram ordering could be too slow on million record db, but is fine with thousands.
-                func.least(
+            ingredient_filter = or_(
+                RecipeIngredientModel.note_normalized.op("%>")(search),
+                RecipeIngredientModel.original_text_normalized.op("%>")(search),
+            )
+            recipe_filters = [
+                RecipeModel.name_normalized.op("%>")(search),
+                RecipeModel.description_normalized.op("%>")(search),
+            ]
+            order_by = (
+                func.least(  # trigram ordering could be too slow on million record db, but is fine with thousands.
                     RecipeModel.name_normalized.op("<->>")(search),
                 )
             )
-
         else:
-            ingredient_ids = (
-                session.execute(
-                    select(RecipeIngredientModel.id).filter(
-                        or_(
-                            *[RecipeIngredientModel.note_normalized.like(f"%{ns}%") for ns in search_list],
-                            *[RecipeIngredientModel.original_text_normalized.like(f"%{ns}%") for ns in search_list],
-                        )
-                    )
-                )
-                .scalars()
-                .all()
+            ingredient_filter = or_(
+                *[RecipeIngredientModel.note_normalized.like(f"%{ns}%") for ns in search_list],
+                *[RecipeIngredientModel.original_text_normalized.like(f"%{ns}%") for ns in search_list],
             )
+            recipe_filters = [
+                *[RecipeModel.name_normalized.like(f"%{ns}%") for ns in search_list],
+                *[RecipeModel.description_normalized.like(f"%{ns}%") for ns in search_list],
+            ]
+            order_by = desc(RecipeModel.name_normalized.like(f"%{search}%"))
 
-            return query.filter(
-                or_(
-                    *[RecipeModel.name_normalized.like(f"%{ns}%") for ns in search_list],
-                    *[RecipeModel.description_normalized.like(f"%{ns}%") for ns in search_list],
-                    RecipeModel.recipe_ingredient.any(RecipeIngredientModel.id.in_(ingredient_ids)),
-                )
-            ).order_by(desc(RecipeModel.name_normalized.like(f"%{search}%")))
+        matching_recipe_ids_query = select(RecipeIngredientModel.recipe_id).filter(ingredient_filter).distinct()
+        matching_recipe_ids = (
+            session.execute(matching_recipe_ids_query.limit(cls._max_search_recipe_ids + 1)).scalars().all()
+        )
+        if len(matching_recipe_ids) > cls._max_search_recipe_ids:
+            ingredient_match = RecipeModel.id.in_(matching_recipe_ids_query)
+        else:
+            ingredient_match = RecipeModel.id.in_(matching_recipe_ids)
+
+        return query.filter(or_(*recipe_filters, ingredient_match)).order_by(order_by)
 
 
 class RecipeLastMade(BaseModel):

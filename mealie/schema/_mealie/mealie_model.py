@@ -44,6 +44,8 @@ class SearchType(Enum):
 
 class MealieModel(BaseModel):
     _fuzzy_similarity_threshold: ClassVar[float] = 0.5
+    # above this many ingredient-matched recipes, a search keeps the ids in a subquery instead of binding them
+    _max_search_recipe_ids: ClassVar[int] = 5000
     _normalize_search: ClassVar[bool] = False
     _searchable_properties: ClassVar[list[str]] = []
     """
