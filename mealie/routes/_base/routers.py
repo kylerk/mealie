@@ -37,9 +37,15 @@ class MealieCrudRoute(APIRoute):
                 # StreamingResponse from starlette doesn't have a body attribute, even though it inherits from Response,
                 # so we may get an attribute error here even though our type hinting suggests otherwise.
                 try:
-                    response_body = json.loads(response.body)
+                    response_body_bytes = response.body
                 except AttributeError:
                     return response
+
+                # cheap pre-check: skip parsing (potentially large) bodies that can't carry the header we're after
+                if b'"updatedAt"' not in response_body_bytes:
+                    return response
+
+                response_body = json.loads(response_body_bytes)
 
                 if isinstance(response_body, dict):
                     if last_modified := response_body.get("updatedAt"):

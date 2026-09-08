@@ -61,9 +61,14 @@ def db_is_at_head(alembic_cfg: config.Config) -> bool:
 
     connectable = engine.create_engine(url)
     directory = script.ScriptDirectory.from_config(alembic_cfg)
-    with connectable.begin() as connection:
-        context = migration.MigrationContext.configure(connection)
-        return set(context.get_current_heads()) == set(directory.get_heads())
+    try:
+        with connectable.begin() as connection:
+            context = migration.MigrationContext.configure(connection)
+            return set(context.get_current_heads()) == set(directory.get_heads())
+    finally:
+        # this engine is only used for the head check; don't leave its connection pool open for the
+        # lifetime of the process
+        connectable.dispose()
 
 
 def safe_try(func: Callable):
