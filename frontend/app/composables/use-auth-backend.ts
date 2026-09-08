@@ -2,6 +2,7 @@ import { ref, computed, watch } from "vue";
 import type { UserOut } from "~/lib/api/types/user";
 import { clearAllStores } from "~/composables/store";
 import { clearComposableCaches } from "~/composables/use-clear-composable-caches";
+import { clearOfflineCaches, isNetworkError, readOfflineCache, writeOfflineCache } from "~/composables/use-offline-cache";
 import { getTokenCookieOptions, getTokenExpiry, nextRefreshDelay, readTokenCookie } from "~/composables/use-token-cookie";
 
 interface AuthData {
@@ -29,6 +30,9 @@ interface AuthState {
 const REFRESH_RETRY_DELAY_MS = 60_000;
 /** Cap those retries, so a persistent server error doesn't become a poll for the life of the tab. */
 const MAX_REFRESH_RETRIES = 5;
+
+/** Offline-cache key for the last user the server confirmed, so the app can open without a connection. */
+const CACHED_SESSION_KEY = "user-self";
 
 const authUser = ref<UserOut | null>(null);
 const authStatus = ref<"loading" | "authenticated" | "unauthenticated">("loading");
@@ -109,6 +113,7 @@ export const useAuthBackend = function (): AuthState {
     if (error?.response?.status === 401) {
       setToken(null);
       resetAuth();
+      clearOfflineCaches();
       if (redirect) {
         router.push("/login");
       }
@@ -127,8 +132,20 @@ export const useAuthBackend = function (): AuthState {
       const { data } = await $axios.get<UserOut>("/api/users/self");
       authUser.value = data;
       authStatus.value = "authenticated";
+      writeOfflineCache(CACHED_SESSION_KEY, data);
     }
     catch (error: any) {
+      // The server couldn't be reached at all, but we still hold a token and know who was signed in
+      // last time: stay signed in so pages with an offline copy (the shopping list) can open. The
+      // next request that does reach the server settles it either way.
+      const cachedSession = isNetworkError(error) ? readOfflineCache<UserOut>(CACHED_SESSION_KEY) : null;
+      if (cachedSession) {
+        console.warn("Server unreachable; continuing with the last known session");
+        authUser.value = cachedSession.value;
+        authStatus.value = "authenticated";
+        return;
+      }
+
       console.error("Failed to fetch user session:", error);
       handleAuthError(error);
       authStatus.value = "unauthenticated";
@@ -171,6 +188,9 @@ export const useAuthBackend = function (): AuthState {
 
       // Clear cached composable refs to prevent data leakage between users
       clearComposableCaches();
+
+      // Drop the offline copies (shopping lists, session) kept for use without a connection
+      clearOfflineCaches();
 
       // Clear Nuxt's useAsyncData cache
       clearNuxtData();

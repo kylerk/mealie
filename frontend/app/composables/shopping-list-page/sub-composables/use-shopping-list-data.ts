@@ -14,9 +14,14 @@ export function useShoppingListData(
   // useOnline registers window listeners, so it must be called once in setup scope rather than
   // inside the computed (which would register a fresh pair of listeners on every re-evaluation)
   const online = useOnline();
-  const isOffline = computed(() => online.value === false);
   const { idle } = useIdle(5 * 60 * 1000); // 5 minutes
   const shoppingListItemActions = useShoppingListItemActions(listId);
+  const { offlineCopySavedAt } = shoppingListItemActions;
+
+  // "Offline" for this page means the server can't be reached, whether or not the browser thinks it
+  // has a connection: a phone with one bar and no throughput still reports online, but the list
+  // will be coming from the copy saved on the device.
+  const isOffline = computed(() => online.value === false || offlineCopySavedAt.value !== null);
 
   async function fetchShoppingList() {
     const data = await shoppingListItemActions.getList();
@@ -49,7 +54,12 @@ export function useShoppingListData(
 
     // Prevent overwriting local changes with stale backend data when offline
     if (isOffline.value) {
-      // Do not update shoppingList.value from backend when offline
+      // Do not update shoppingList.value from backend when offline, unless we have nothing to show
+      // yet: on a fresh open without a connection the saved copy (with queued changes merged in) is
+      // the list.
+      if (!shoppingList.value && newListValue) {
+        shoppingList.value = newListValue;
+      }
       updateListItemOrder();
       return;
     }
@@ -115,6 +125,7 @@ export function useShoppingListData(
 
   return {
     isOffline,
+    offlineCopySavedAt,
     fetchShoppingList,
     refresh,
     startPolling,

@@ -159,6 +159,51 @@ describe("refresh", () => {
   });
 });
 
+describe("getSession", () => {
+  test("continues with the last known session when the server is unreachable", async () => {
+    localStorage.clear();
+    const auth = useAuthBackend();
+    auth.setToken(validToken());
+
+    // a successful session fetch saves the user for offline use
+    await auth.getSession();
+    expect(auth.status.value).toBe("authenticated");
+
+    // then the connection drops before the next app start
+    axiosMock.get.mockRejectedValue(new Error("Network Error"));
+    await auth.getSession();
+
+    expect(auth.status.value).toBe("authenticated");
+    expect(auth.data.value).toEqual({ id: "user-1" });
+    expect(routerMock.push).not.toHaveBeenCalled();
+  });
+
+  test("does not use the saved session when the token is rejected", async () => {
+    localStorage.clear();
+    const auth = useAuthBackend();
+    auth.setToken(validToken());
+    await auth.getSession();
+
+    axiosMock.get.mockRejectedValue(unauthorized());
+    await auth.getSession();
+
+    expect(auth.status.value).toBe("unauthenticated");
+    expect(auth.token.value).toBeNull();
+    // the saved copy is gone too, so the next unreachable start can't resurrect it
+    expect(localStorage.getItem("mealie-offline:user-self")).toBeNull();
+  });
+
+  test("stays signed out without a saved session", async () => {
+    localStorage.clear();
+    const auth = useAuthBackend();
+    auth.setToken(validToken());
+    axiosMock.get.mockRejectedValue(new Error("Network Error"));
+
+    await auth.getSession();
+    expect(auth.status.value).toBe("unauthenticated");
+  });
+});
+
 describe("signIn", () => {
   test("stores the token and loads the session", async () => {
     const auth = useAuthBackend();

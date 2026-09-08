@@ -5,7 +5,8 @@ import type { QueryValue } from "~/lib/api/base/route";
 
 interface ReadOnlyStoreActions<T extends BoundT> {
   getAll(page?: number, perPage?: number, params?: any): AsyncData<T[] | null, NuxtError<unknown> | null>;
-  refresh(page?: number, perPage?: number, params?: any): Promise<void>;
+  /** Resolves to true when the server answered, false when the request failed. */
+  refresh(page?: number, perPage?: number, params?: any): Promise<boolean>;
 }
 
 interface StoreActions<T extends BoundT> extends ReadOnlyStoreActions<T> {
@@ -72,6 +73,7 @@ export function useReadOnlyActions<T extends BoundT>(
 
     initialized.value = true;
     loading.value = false;
+    return !!data;
   }
 
   return {
@@ -137,6 +139,7 @@ export function useStoreActions<T extends BoundT>(
 
     initialized.value = true;
     loading.value = false;
+    return !!data;
   }
 
   async function createOne(createData: T) {

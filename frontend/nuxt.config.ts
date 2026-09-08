@@ -227,6 +227,20 @@ export default defineNuxtConfig({
       cleanupOutdatedCaches: true,
       skipWaiting: true,
       clientsClaim: true,
+      // Public, user-independent endpoints the app needs to boot. Served from the network when it
+      // answers quickly, otherwise from the last good response, so the app can open offline.
+      runtimeCaching: [
+        {
+          urlPattern: /\/api\/app\/about(\/theme|\/startup-info)?$/,
+          handler: "NetworkFirst",
+          options: {
+            cacheName: "mealie-app-info",
+            networkTimeoutSeconds: 4,
+            expiration: { maxEntries: 4, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+      ],
     },
     client: {
       installPrompt: true,

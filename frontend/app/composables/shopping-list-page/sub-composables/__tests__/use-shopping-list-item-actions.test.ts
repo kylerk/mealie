@@ -32,11 +32,13 @@ describe("useShoppingListItemActions", () => {
     deleteItem,
     updateItem,
     process,
+    offlineCopySavedAt,
     __testing__: { queue, clearQueueItems },
   } = useShoppingListItemActions("list_id");
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     isOnline.value = true;
     storedValue.value = undefined;
     clearQueueItems("all");
@@ -45,6 +47,45 @@ describe("useShoppingListItemActions", () => {
   test("getList returns a shopping list", async () => {
     const list = await getList();
     expect(list).toBe(MOCK_SHOPPING_LIST);
+    expect(offlineCopySavedAt.value).toBeNull();
+  });
+  describe("offline copy", () => {
+    test("getList falls back to the copy saved on the device when the server is unreachable", async () => {
+      await getList(); // saves a copy
+      getOne.mockResolvedValueOnce({ data: null, error: new Error("Network Error") });
+
+      const list = await getList();
+      expect(list?.id).toBe(MOCK_SHOPPING_LIST.id);
+      expect(list?.listItems?.map(item => item.id)).toEqual(MOCK_SHOPPING_LIST.listItems?.map(item => item.id));
+      expect(offlineCopySavedAt.value).toBeTypeOf("number");
+    });
+    test("queued changes are merged into the saved copy", async () => {
+      await getList();
+      getOne.mockResolvedValueOnce({ data: null, error: new Error("Network Error") });
+
+      const checkedItem = { ...MOCK_ITEM, checked: true, updatedAt: "200" };
+      updateItem(checkedItem);
+      const newItem = { ...MOCK_ITEM, id: "new-item" };
+      createItem(newItem);
+
+      const list = await getList();
+      expect(list?.listItems?.find(item => item.id === MOCK_ITEM.id)?.checked).toBe(true);
+      expect(list?.listItems?.some(item => item.id === "new-item")).toBe(true);
+    });
+    test("getList returns nothing when there is no saved copy either", async () => {
+      getOne.mockResolvedValueOnce({ data: null, error: new Error("Network Error") });
+      expect(await getList()).toBeNull();
+      expect(offlineCopySavedAt.value).toBeNull();
+    });
+    test("a successful fetch clears the offline marker", async () => {
+      await getList();
+      getOne.mockResolvedValueOnce({ data: null, error: new Error("Network Error") });
+      await getList();
+      expect(offlineCopySavedAt.value).not.toBeNull();
+
+      await getList();
+      expect(offlineCopySavedAt.value).toBeNull();
+    });
   });
   test("create item creates an item", () => {
     createItem(MOCK_ITEM);
@@ -108,6 +149,25 @@ describe("useShoppingListItemActions", () => {
       expect(queue.update).not.include(updatedItem);
       expect(queue.create).not.include(createdItem);
       expect(queue.delete).not.include(deletedItem);
+    });
+    test("doesn't clear the queue when the browser says online but requests fail", async () => {
+      const failed = { data: null, error: new Error("Network Error"), response: null };
+      updateMany.mockResolvedValueOnce(failed);
+      createMany.mockResolvedValueOnce(failed);
+      deleteMany.mockResolvedValueOnce(failed);
+
+      const updatedItem = { ...MOCK_ITEM, id: "update" };
+      const createdItem = { ...MOCK_ITEM, id: "create" };
+      const deletedItem = { ...MOCK_ITEM, id: "delete" };
+
+      updateItem(updatedItem);
+      createItem(createdItem);
+      deleteItem(deletedItem);
+
+      await process();
+      expect(queue.update).include(updatedItem);
+      expect(queue.create).include(createdItem);
+      expect(queue.delete).include(deletedItem);
     });
     test("doesn't clear the queue if offline", async () => {
       isOnline.value = false;

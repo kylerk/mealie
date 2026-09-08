@@ -1,9 +1,11 @@
 import { useEventListener, useLocalStorage, useOnline, useThrottleFn } from "@vueuse/core";
 import { useUserApi } from "~/composables/api";
+import { readOfflineCache, writeOfflineCache } from "~/composables/use-offline-cache";
 import type { ShoppingListItemOut, ShoppingListOut } from "~/lib/api/types/household";
 import type { RequestResponse } from "~/lib/api/types/non-generated";
 
 const localStorageKey = "shopping-list-queue";
+const offlineCacheKeyPrefix = "shopping-list:";
 const queueTimeout = 5 * 60 * 1000; // 5 minutes
 
 type ItemQueueType = "create" | "update" | "delete";
@@ -23,6 +25,13 @@ interface Storage {
 export function useShoppingListItemActions(shoppingListId: string) {
   const isOnline = useOnline();
   const api = useUserApi();
+  const offlineCacheKey = offlineCacheKeyPrefix + shoppingListId;
+
+  /**
+   * When the server can't be reached, `getList` falls back to the copy saved on this device and
+   * records when that copy was saved; null while the list is coming from the server.
+   */
+  const offlineCopySavedAt = ref<number | null>(null);
   const storage = useLocalStorage(localStorageKey, {} as Storage, { deep: true });
   const queue = reactive(getQueue());
   const queueEmpty = computed(() => !queue.create.length && !queue.update.length && !queue.delete.length);
@@ -128,18 +137,34 @@ export function useShoppingListItemActions(shoppingListId: string) {
 
   async function getList() {
     const response = await api.shopping.lists.getOne(shoppingListId);
-    if (response.data) {
-      // Merge pending local changes (both online and offline)
-      const createAndUpdateQueues = mergeListItemsByLatest(queue.update, queue.create);
-      const deleteQueueIds = new Set(queue.delete.map(item => item.id));
+    let list = response.data;
 
-      const filteredLocalChanges = createAndUpdateQueues.filter(item => !deleteQueueIds.has(item.id));
-      let mergedItems = mergeListItemsByLatest(response.data.listItems ?? [], filteredLocalChanges);
-      mergedItems = mergedItems.filter(item => !deleteQueueIds.has(item.id));
-
-      response.data.listItems = mergedItems;
+    if (list) {
+      // keep a copy for the next time the server is unreachable (saved before the queue is merged in,
+      // so the copy is exactly what the server last told us)
+      writeOfflineCache(offlineCacheKey, list);
+      offlineCopySavedAt.value = null;
     }
-    return response.data;
+    else {
+      const cached = readOfflineCache<ShoppingListOut>(offlineCacheKey);
+      if (!cached) {
+        offlineCopySavedAt.value = null;
+        return null;
+      }
+      list = cached.value;
+      offlineCopySavedAt.value = cached.savedAt;
+    }
+
+    // Merge pending local changes (both online and offline)
+    const createAndUpdateQueues = mergeListItemsByLatest(queue.update, queue.create);
+    const deleteQueueIds = new Set(queue.delete.map(item => item.id));
+
+    const filteredLocalChanges = createAndUpdateQueues.filter(item => !deleteQueueIds.has(item.id));
+    let mergedItems = mergeListItemsByLatest(list.listItems ?? [], filteredLocalChanges);
+    mergedItems = mergedItems.filter(item => !deleteQueueIds.has(item.id));
+
+    list.listItems = mergedItems;
+    return list;
   }
 
   function createItem(item: ShoppingListItemOut) {
@@ -229,8 +254,11 @@ export function useShoppingListItemActions(shoppingListId: string) {
       const itemIdsToProcess = itemsToProcess.map(item => item.id);
 
       await action(itemsToProcess)
-        .then(() => {
-          if (isOnline.value) {
+        .then((response) => {
+          // The browser can report "online" while nothing actually gets through (no signal in a
+          // shop, a captive portal, the server being down). Only drop the queued changes when the
+          // request really succeeded; otherwise they stay queued for the next attempt.
+          if (isOnline.value && !response?.error) {
             clearQueueItems(itemQueueType, itemIdsToProcess);
           }
         });
@@ -276,6 +304,7 @@ export function useShoppingListItemActions(shoppingListId: string) {
     updateItem,
     deleteItem,
     process,
+    offlineCopySavedAt,
 
     __testing__: {
       queue,

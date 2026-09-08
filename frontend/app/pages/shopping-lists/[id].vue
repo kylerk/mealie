@@ -156,8 +156,10 @@
     </BasePageTitle>
     <BannerWarning
       v-if="isOffline"
-      :title="$t('shopping-list.you-are-offline')"
-      :description="$t('shopping-list.you-are-offline-description')"
+      :title="offlineCopySavedAt ? $t('shopping-list.offline-copy-title') : $t('shopping-list.you-are-offline')"
+      :description="offlineCopySavedAt
+        ? $t('shopping-list.offline-copy-description', { time: offlineCopyTime })
+        : $t('shopping-list.you-are-offline-description')"
     />
 
     <!-- Viewer -->
@@ -411,6 +413,7 @@ const {
   copyListItems,
   toggleReorderLabelsDialog,
   isOffline,
+  offlineCopySavedAt,
   createEditorOpen,
   createListItemData,
   createListItem,
@@ -428,6 +431,13 @@ const {
   removeRecipeReferenceToList,
   addRecipeReferenceToList,
 } = shoppingListPage;
+
+const offlineCopyTime = computed(() => {
+  if (!offlineCopySavedAt.value) {
+    return "";
+  }
+  return new Date(offlineCopySavedAt.value).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+});
 </script>
 
 <style>

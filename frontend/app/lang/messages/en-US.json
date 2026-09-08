@@ -779,6 +779,8 @@
     "items-checked-count": "No items checked|One item checked|{count} items checked",
     "no-label": "No Label",
     "completed-on": "Completed on {date}",
+    "offline-copy-title": "Showing a copy saved on this device",
+    "offline-copy-description": "The server can't be reached, so this is the copy of the list saved here on {time}. You can still check off, add and edit items; your changes will sync as soon as the server is reachable again.",
     "you-are-offline": "You are offline",
     "you-are-offline-description": "Not all features are available while offline. You can still add, modify, and remove items, but you will not be able to sync your changes to the server until you are back online.",
     "are-you-sure-you-want-to-check-all-items": "Are you sure you want to check all items?",

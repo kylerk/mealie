@@ -133,6 +133,7 @@ import type { ShoppingListOut } from "~/lib/api/types/household";
 import { useUserApi } from "~/composables/api";
 import { useAsyncKey } from "~/composables/use-utils";
 import { useShoppingListPreferences } from "~/composables/use-users/preferences";
+import { readOfflineCache, writeOfflineCache } from "~/composables/use-offline-cache";
 import type { UserOut } from "~/lib/api/types/user";
 
 const auth = useMealieAuth();
@@ -193,13 +194,17 @@ watch(
   },
 );
 
+const offlineCacheKey = "shopping-lists";
+
 async function fetchShoppingLists() {
   const { data } = await userApi.shopping.lists.getAll(1, -1, { orderBy: "name", orderDirection: "asc" });
 
   if (!data) {
-    return [];
+    // server unreachable: show the lists we knew about last time so the user can still open one
+    return readOfflineCache<ShoppingListOut[]>(offlineCacheKey)?.value ?? [];
   }
 
+  writeOfflineCache(offlineCacheKey, data.items);
   return data.items;
 }
 
