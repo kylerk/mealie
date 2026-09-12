@@ -9,6 +9,7 @@
       control-variant="stacked"
       style="flex: 1"
       inset
+      @keyup.enter="emit('save')"
     />
     <InputLabelType
       v-model="listItem.unit"
@@ -20,6 +21,7 @@
       style="flex: 3"
       create
       @create="createAssignUnit"
+      @enter="emit('save')"
     />
   </div>
   <v-textarea
@@ -40,6 +42,7 @@
       :label="$t('shopping-list.label')"
       :menu-props="{ location: menuDirection }"
       style="flex: 1 0 200px"
+      @enter="emit('save')"
     />
     <BaseButton
       v-if="listItem.labelId && listItem.food && listItem.labelId !== listItem.food.labelId"

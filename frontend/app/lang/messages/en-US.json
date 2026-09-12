@@ -762,6 +762,7 @@
     "show-labels": "Show labels",
     "item-added-to-list": "{item} added to list",
     "create-and-add-to-list": "Create & add to list",
+    "create-as-new-food": "Create as new food",
     "set-quantity-and-label": "Set quantity & label",
     "food": "Food",
     "note": "Note",

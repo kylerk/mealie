@@ -17,15 +17,18 @@
     auto-select-first
     clearable
     hide-details
-    @keyup.enter="emitCreate"
+    @keydown.capture="onKeydown"
+    @keyup.enter="onEnterKeyup"
     @input="onUserEdit"
     @click:clear="onUserEdit"
   >
+    <!-- prepended rather than appended: a long list of matches would otherwise push the
+         buttons to the bottom of the dropdown, where they are clipped until the list is scrolled -->
     <template
       v-if="create"
-      #append-item
+      #prepend-item
     >
-      <div v-if="showCreate && !hideCreateActions" class="px-2">
+      <div v-if="showCreate && !hideCreateActions" class="px-2 pb-1">
         <!-- callers can offer more than one action for the typed text (e.g. create vs. add as a note) -->
         <slot
           name="create-actions"
@@ -85,7 +88,13 @@ const props = defineProps({
 });
 
 const emit = defineEmits<{
-  (e: "create", val: string): void;
+  // "create": Enter (or Ctrl+Enter) on text that names no existing item.
+  // "alt-enter": Shift+Enter; the parent may want to do something else with the typed text
+  // (e.g. add it as a note).
+  (e: "create" | "alt-enter", val: string): void;
+  // Enter pressed without creating anything: the typed text picked (or already held) an
+  // existing item, or the field is empty. Parents can treat it as "confirm this field".
+  (e: "enter"): void;
 }>();
 
 const autocompleteRef = ref<HTMLInputElement>();
@@ -133,9 +142,11 @@ const itemVal = computed({
   },
 });
 
-// when the selection is cleared from outside (e.g. the form resets after saving), drop the typed text too
+// when the selection is cleared from outside (e.g. the form resets after saving), drop the typed
+// text too; searchText goes first so the guard above does not put the old text straight back
 watch(modelValue, (val) => {
   if (!val) {
+    searchText.value = "";
     searchInput.value = "";
   }
 });
@@ -150,6 +161,17 @@ function blur() {
   autocompleteRef.value?.blur();
 }
 
+function menuState() {
+  return autocompleteRef.value as unknown as { menu?: boolean } | undefined;
+}
+
+function closeMenu() {
+  const autocomplete = menuState();
+  if (autocomplete) {
+    autocomplete.menu = false;
+  }
+}
+
 function emitCreate() {
   if (!showCreate.value) {
     return;
@@ -158,8 +180,70 @@ function emitCreate() {
   blur();
 }
 
+// Plain Enter is left to Vuetify first (keydown picks the highlighted match), then acted on
+// here on keyup. A modified Enter is claimed on keydown, before Vuetify can turn it into a
+// selection, and the keyup that follows it is ignored so nothing happens twice.
+let modifiedEnter = false;
+
+function onKeydown(e: KeyboardEvent) {
+  // Escape with the dropdown open only closes the dropdown. The event still bubbles (Vuetify's
+  // own handler lives on an ancestor), so it is marked handled for ancestors that would
+  // otherwise treat it as "close the whole form".
+  if (e.key === "Escape") {
+    if (menuState()?.menu) {
+      closeMenu();
+      e.preventDefault();
+    }
+    return;
+  }
+  if (e.key !== "Enter" || !(e.ctrlKey || e.metaKey || e.shiftKey)) {
+    return;
+  }
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  modifiedEnter = true;
+  const val = searchInput.value?.trim() ?? "";
+  if (e.shiftKey) {
+    if (val) {
+      closeMenu();
+      emit("alt-enter", val);
+    }
+    return;
+  }
+  // Ctrl/Cmd+Enter: create the text as typed, even when a similar item is highlighted
+  if (showCreate.value) {
+    emitCreate();
+  }
+  else {
+    closeMenu();
+    emit("enter");
+  }
+}
+
+function onEnterKeyup() {
+  if (modifiedEnter) {
+    modifiedEnter = false;
+    return;
+  }
+  if (showCreate.value) {
+    emitCreate();
+    return;
+  }
+  // Vuetify opens the menu on Enter even when there is nothing left to pick; keep it shut
+  // so the field is ready for whatever the parent does next (typically saving and clearing)
+  closeMenu();
+  emit("enter");
+}
+
+function clearSearch() {
+  searchText.value = "";
+  searchInput.value = "";
+}
+
 defineExpose({
   focus: () => autocompleteRef.value?.focus(),
   blur,
+  // drop typed text that never became a selection (e.g. after the parent used it as a note)
+  clearSearch,
 });
 </script>
