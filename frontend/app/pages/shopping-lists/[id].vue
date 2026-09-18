@@ -541,6 +541,16 @@ const offlineCopyTime = computed(() => {
     margin-left: 0 !important;
   }
 
+  /* the row's action icons are secondary to the item text, so they sit back until used */
+  .shopping-list-item-row .v-btn--size-small .v-icon {
+    opacity: 0.4;
+  }
+
+  .shopping-list-item-row .v-btn--size-small:hover .v-icon,
+  .shopping-list-item-row .v-btn--size-small:focus-visible .v-icon {
+    opacity: 1;
+  }
+
   .shopping-list-item-row .mb-2 {
     margin-bottom: 0 !important;
   }
